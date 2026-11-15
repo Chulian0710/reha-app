@@ -1,0 +1,22 @@
+{
+  "name": "reha-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "dexie": "^4.0.0",
+    "jspdf": "^3.0.0",
+    "pdfjs-dist": "^6.2.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "svelte": "^5.0.0",
+    "vite": "^6.0.0",
+    "vite-plugin-pwa": "^1.0.0"
+  }
+}

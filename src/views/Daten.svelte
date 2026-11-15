@@ -1,0 +1,98 @@
+<script>
+  import { liveQuery } from 'dexie';
+  import { db } from '../lib/db.js';
+  import { backupHerunterladen, backupWiederherstellen } from '../lib/backup.js';
+  import { berichtErzeugen } from '../lib/report.js';
+  import { packImportieren } from '../lib/betreuer.js';
+
+  let packInput;
+  let packMeldung = '';
+  async function packLaden(ev) {
+    const datei = ev.target.files[0];
+    ev.target.value = '';
+    if (!datei) return;
+    if (!confirm('Belohnungen, Briefe, Abzeichen und Level-Stufen werden durch das Pack ersetzt. Deine XP und Einträge bleiben. Fortfahren?')) return;
+    try {
+      await packImportieren(await datei.text());
+      packMeldung = 'Pack wurde importiert.';
+    } catch (e) {
+      packMeldung = e.message;
+    }
+  }
+
+  const letztes = liveQuery(() => db.einstellungen.get('letztesBackup'));
+
+  let passwort = '';
+  let meldung = '';
+  let dateiInput;
+
+  $: tage = $letztes ? Math.floor((Date.now() - new Date($letztes.value).getTime()) / 86400000) : null;
+
+  async function sichern() {
+    meldung = '';
+    await backupHerunterladen(passwort || null);
+    meldung = 'Backup wurde gespeichert.';
+  }
+
+  async function laden(ev) {
+    const datei = ev.target.files[0];
+    if (!datei) return;
+    if (!confirm('Alle aktuellen Daten in der App werden durch das Backup ersetzt. Fortfahren?')) {
+      ev.target.value = '';
+      return;
+    }
+    try {
+      await backupWiederherstellen(await datei.text(), passwort || null);
+      meldung = 'Backup wurde wiederhergestellt.';
+    } catch (e) {
+      meldung = e.message;
+    }
+    ev.target.value = '';
+  }
+</script>
+
+<h1>Daten</h1>
+
+<div class="hinweis">
+  Alle Daten bleiben auf diesem Gerät. Es gibt keinen Server und keinen Account.
+  Wenn du die Browserdaten löschst oder das Gerät verlierst, sind sie weg, außer du hast ein Backup.
+</div>
+
+<h2>Backup</h2>
+<div class="card">
+  {#if tage === null}
+    <p class="muted">Noch kein Backup erstellt.</p>
+  {:else}
+    <p class="muted">Letztes Backup: vor {tage} {tage === 1 ? 'Tag' : 'Tagen'}.</p>
+  {/if}
+
+  <label for="pw">Passwort (optional, verschlüsselt die Datei)</label>
+  <input id="pw" type="password" bind:value={passwort} autocomplete="new-password" />
+  <p class="muted">Passwort vergessen heißt: Backup nicht mehr lesbar. Es gibt keine Wiederherstellung.</p>
+
+  <div class="row">
+    <button on:click={sichern}>Backup speichern</button>
+    <button class="sek" on:click={() => dateiInput.click()}>Backup laden</button>
+  </div>
+  <input bind:this={dateiInput} type="file" accept="application/json,.json" on:change={laden} style="display: none" />
+  {#if meldung}<p class="hinweis">{meldung}</p>{/if}
+</div>
+
+<h2>Bericht</h2>
+<div class="card">
+  <p class="muted">Ein PDF mit deinen Messwerten, z. B. zum Zeigen beim Physio. Das ist kein Backup und lässt sich nicht wieder importieren.</p>
+  <button on:click={berichtErzeugen}>PDF-Bericht erstellen</button>
+</div>
+
+<h2>Pack importieren</h2>
+<div class="card">
+  <p class="muted" style="margin-top: 0">Ein Pack enthält Belohnungen, Briefe, Abzeichen und Level-Stufen aus dem Betreuer-Bereich, z. B. von einem anderen Gerät.</p>
+  <button class="sek" on:click={() => packInput.click()}>Pack-Datei wählen</button>
+  <input bind:this={packInput} type="file" accept="application/json,.json" on:change={packLaden} style="display: none" />
+  {#if packMeldung}<p class="hinweis">{packMeldung}</p>{/if}
+</div>
+
+<h2>Übungsbibliothek</h2>
+<div class="card">
+  <p class="muted" style="margin: 0">Die Bibliothek ist eine kleine, eigene Liste mit Übungsnamen. Sie ist in der App gespeichert, Suchen werden nicht online abgefragt.</p>
+</div>

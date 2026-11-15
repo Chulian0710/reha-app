@@ -1,0 +1,82 @@
+import { db, getEinstellung } from './db.js';
+import { heute } from './datum.js';
+
+// Standardregeln. Im Betreuer-Bereich änderbar (Einstellung 'xpRegeln').
+export const STANDARD_REGELN = {
+  uebungXp: 7, // pro geplanter Übung, wenn im Plan kein eigener Wert steht
+  aktivitaetXp: 10, // Kino, Malen, Pause, Ausflug …
+  bestwertXp: 30, // neuer persönlicher Bestwert (Kraft)
+  zielXp: 50, // Ziel erreicht
+  bestwertProWoche: true // höchstens ein Bestwert-Bonus pro Übung, Seite und Woche
+};
+
+// Level 1 ab 0 XP, Level 2 ab 50 XP usw. Danach wächst der Abstand je Level um 100 XP.
+export const STANDARD_SCHWELLEN = [0, 50, 200, 450, 800];
+
+export async function regeln() {
+  return { ...STANDARD_REGELN, ...((await getEinstellung('xpRegeln')) || {}) };
+}
+
+export async function schwellen() {
+  const s = await getEinstellung('levelSchwellen');
+  return Array.isArray(s) && s.length ? s : STANDARD_SCHWELLEN;
+}
+
+// XP-Wert, ab dem ein Level beginnt. Über die Liste hinaus geht die Kurve offen weiter.
+export function schwelleFuer(liste, level) {
+  if (level <= liste.length) return liste[level - 1];
+  let wert = liste[liste.length - 1];
+  let abstand = liste.length > 1 ? liste[liste.length - 1] - liste[liste.length - 2] : 50;
+  for (let l = liste.length + 1; l <= level; l++) {
+    abstand += 100;
+    wert += abstand;
+  }
+  return wert;
+}
+
+export function levelInfo(xp, liste) {
+  let level = 1;
+  while (xp >= schwelleFuer(liste, level + 1)) level++;
+  const start = schwelleFuer(liste, level);
+  const naechster = schwelleFuer(liste, level + 1);
+  return { level, start, naechster, fortschritt: (xp - start) / (naechster - start) };
+}
+
+// Vergibt XP. Mit ref wird dieselbe Aktion nur einmal gezählt. Gibt false zurück, wenn schon vergeben.
+export async function xpVergeben(grund, punkte, ref = null, datum = heute()) {
+  if (ref && (await db.xpLog.where('ref').equals(ref).count())) return false;
+  const eintrag = { datum, grund, punkte, zeit: Date.now() };
+  if (ref) eintrag.ref = ref;
+  await db.xpLog.add(eintrag);
+  return true;
+}
+
+export async function xpEntfernen(ref) {
+  await db.xpLog.where('ref').equals(ref).delete();
+}
+
+// Ist der neue Wert höher als alle bisherigen dieser Reihe und Seite?
+export async function istBestwert(reiheId, seite, wert) {
+  const alle = await db.werte.where('reiheId').equals(reiheId).toArray();
+  const gleiche = alle.filter((w) => w.seite === seite);
+  if (gleiche.length === 0) return false;
+  return wert > Math.max(...gleiche.map((w) => w.wert));
+}
+
+// XP der letzten Trainingseinheit vor einem Datum (für Ruhetage). null, wenn es noch keine gab.
+export async function letzteTrainingsXp(vorDatum) {
+  const eintraege = await db.xpLog.where('ref').startsWith('uebung:').toArray();
+  const frueher = eintraege.filter((e) => e.datum < vorDatum);
+  if (!frueher.length) return null;
+  const letzter = frueher.reduce((m, e) => (e.datum > m ? e.datum : m), '');
+  return frueher.filter((e) => e.datum === letzter).reduce((s, e) => s + e.punkte, 0);
+}
+
+// Verdiente XP (bestimmen das Level) und verfügbare XP (minus eingelöste Belohnungen)
+export async function punktestand() {
+  const log = await db.xpLog.toArray();
+  const einl = await db.einloesungen.toArray();
+  const verdient = log.reduce((s, e) => s + e.punkte, 0);
+  const ausgegeben = einl.reduce((s, e) => s + e.kosten, 0);
+  return { verdient, ausgegeben, verfuegbar: verdient - ausgegeben };
+}

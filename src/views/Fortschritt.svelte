@@ -1,0 +1,363 @@
+<script>
+  import { onMount } from 'svelte';
+  import { liveQuery } from 'dexie';
+  import { db, heute } from '../lib/db.js';
+  import { iso, parse, kurz, wochentag, TAGE } from '../lib/datum.js';
+  import { levelInfo, schwellen, punktestand } from '../lib/xp.js';
+  import { statistik, erreicht as abzErreicht, bedingungText } from '../lib/abzeichen.js';
+  import { zieleMitStand, zielePruefen, umfangReihen, UMFANG_STELLEN, zahlText } from '../lib/ziele.js';
+  import { gehe } from '../lib/nav.js';
+  import LineChart from '../lib/LineChart.svelte';
+
+  const h = heute();
+  const LINKS = '#00897b';
+  const RECHTS = '#c4561a';
+  const WOCHEN = 16;
+
+  onMount(() => zielePruefen());
+
+  const daten = liveQuery(async () => {
+    const stand = await punktestand();
+    const erledigt = await db.erledigt.toArray();
+    const saetze = (await db.saetze.toArray()).filter((s) => s.fertig && s.gewicht !== null && s.gewicht !== undefined);
+    const uebungen = await db.uebungen.toArray();
+    const reihen = (await db.reihen.toArray()).filter((r) => r.typ !== 'kraft');
+    const werte = await db.werte.toArray();
+    return {
+      stand,
+      level: levelInfo(stand.verdient, await schwellen()),
+      erledigt,
+      saetze,
+      uebungen,
+      reihen,
+      werte,
+      ziele: await zieleMitStand(),
+      abzeichen: await db.abzeichen.toArray(),
+      stat: await statistik()
+    };
+  });
+  $: d = $daten;
+
+  // --- Trainingstage als Wochenraster ---
+  $: proTag = d ? d.erledigt.reduce((m, e) => ((m[e.datum] = (m[e.datum] || 0) + 1), m), {}) : {};
+  $: raster = (() => {
+    const ende = parse(h);
+    ende.setDate(ende.getDate() + (7 - wochentag(h))); // Sonntag dieser Woche
+    const start = new Date(ende);
+    start.setDate(start.getDate() - WOCHEN * 7 + 1);
+    const wochen = [];
+    for (let w = 0; w < WOCHEN; w++) {
+      const tage = [];
+      for (let t = 0; t < 7; t++) {
+        const dt = new Date(start);
+        dt.setDate(start.getDate() + w * 7 + t);
+        const ds = iso(dt);
+        tage.push({ ds, n: proTag[ds] || 0, zukunft: ds > h });
+      }
+      wochen.push(tage);
+    }
+    return wochen;
+  })();
+  $: tageImRaster = raster.flat().filter((t) => t.n > 0).length;
+  const stufe = (n) => (n === 0 ? 0 : n <= 1 ? 1 : n <= 3 ? 2 : n <= 5 ? 3 : 4);
+  const STUFEN = ['var(--leer)', '#cde8e3', '#86c9bf', '#2f9f91', '#00695e'];
+  let rasterAktiv = null;
+
+  // Serie: Tage am Stück mit Training (heute zählt, wenn schon trainiert)
+  $: serie = (() => {
+    let n = 0;
+    const dt = parse(h);
+    if (!proTag[h]) dt.setDate(dt.getDate() - 1);
+    while (proTag[iso(dt)]) {
+      n++;
+      dt.setDate(dt.getDate() - 1);
+    }
+    return n;
+  })();
+
+  // --- Kraft aus den Trainingssätzen ---
+  $: kraft = (() => {
+    if (!d) return [];
+    const je = {};
+    for (const s of d.saetze) {
+      const k = (je[s.uebungId] ||= { tage: {}, best: null });
+      k.tage[s.datum] = Math.max(k.tage[s.datum] ?? -Infinity, s.gewicht);
+      if (!k.best || s.gewicht > k.best.gewicht || (s.gewicht === k.best.gewicht && (s.wdh ?? 0) > (k.best.wdh ?? 0))) k.best = s;
+    }
+    return Object.entries(je)
+      .map(([id, k]) => {
+        const u = d.uebungen.find((x) => x.id === Number(id));
+        const punkte = Object.entries(k.tage).map(([datum, wert]) => ({ datum, wert })).sort((a, b) => a.datum.localeCompare(b.datum));
+        return { id: Number(id), name: u?.name ?? 'Übung', punkte, best: k.best };
+      })
+      .sort((a, b) => b.best.datum.localeCompare(a.best.datum) || a.name.localeCompare(b.name, 'de'));
+  })();
+
+  let kraftId = null;
+  $: if (kraft.length && !kraft.some((k) => k.id === kraftId)) kraftId = kraft[0].id;
+  $: kraftAuswahl = kraft.find((k) => k.id === kraftId);
+
+  let zeitraum = 'alles';
+  const ZEITRAEUME = [['4w', '4 Wochen', 28], ['3m', '3 Monate', 91], ['alles', 'Alles', null]];
+  $: abDatum = (() => {
+    const tage = ZEITRAEUME.find((z) => z[0] === zeitraum)[2];
+    if (!tage) return '';
+    const dt = parse(h);
+    dt.setDate(dt.getDate() - tage);
+    return iso(dt);
+  })();
+  $: kraftPunkte = kraftAuswahl ? kraftAuswahl.punkte.filter((p) => p.datum >= abDatum) : [];
+  $: kraftStart = kraftPunkte[0];
+  $: kraftJetzt = kraftPunkte[kraftPunkte.length - 1];
+  $: kraftPlus = kraftStart && kraftJetzt && kraftStart.wert > 0 ? Math.round(((kraftJetzt.wert - kraftStart.wert) / kraftStart.wert) * 100) : null;
+
+  function kraftZeigen(id) {
+    kraftId = id;
+    document.getElementById('kraft')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // --- Ausgangssituation vs. letzte Messung ---
+  let stellen = [];
+  onMount(async () => (stellen = await umfangReihen()));
+  $: vergleich = (() => {
+    if (!d) return [];
+    const rang = (r) => {
+      if (r.typ !== 'umfang') return 100;
+      const i = UMFANG_STELLEN.findIndex((n) => n.toLowerCase() === r.name.toLowerCase());
+      return i < 0 ? 50 : i;
+    };
+    return d.reihen
+      .map((r) => {
+        const w = d.werte.filter((x) => x.reiheId === r.id).sort((a, b) => a.datum.localeCompare(b.datum) || a.id - b.id);
+        const seiten = [...new Set(w.map((x) => x.seite))].sort();
+        const zeilen = seiten.map((s) => {
+          const ws = w.filter((x) => x.seite === s);
+          return { seite: s, erst: ws[0], letzt: ws[ws.length - 1], anzahl: ws.length };
+        });
+        return { ...r, werte: w, zeilen, rang: rang(r) };
+      })
+      .filter((r) => r.werte.length)
+      .sort((a, b) => a.rang - b.rang || a.name.localeCompare(b.name, 'de'));
+  })();
+  let offenReihe = null;
+  function reiheSerien(r) {
+    const seitig = r.zeilen.some((z) => z.seite !== '-');
+    if (!seitig) return [{ name: r.name, farbe: LINKS, punkte: r.werte.map((w) => ({ datum: w.datum, wert: w.wert })) }];
+    return [
+      { name: 'Links', farbe: LINKS, punkte: r.werte.filter((w) => w.seite === 'L').map((w) => ({ datum: w.datum, wert: w.wert })) },
+      { name: 'Rechts', farbe: RECHTS, gestrichelt: true, punkte: r.werte.filter((w) => w.seite === 'R').map((w) => ({ datum: w.datum, wert: w.wert })) }
+    ];
+  }
+  const seiteText = (s) => (s === 'L' ? 'Links' : s === 'R' ? 'Rechts' : '');
+  function delta(z) {
+    const v = Math.round((z.letzt.wert - z.erst.wert) * 10) / 10;
+    if (v === 0) return '±0';
+    return (v > 0 ? '+' : '−') + zahlText(Math.abs(v));
+  }
+
+  // --- Ziele & Abzeichen ---
+  $: zieleOffen = d ? d.ziele.filter((z) => !z.erreicht) : [];
+  $: zieleErreicht = d ? d.ziele.filter((z) => z.erreicht) : [];
+  function abzFortschritt(a, stat) {
+    const ist = Math.min(stat[a.typ] ?? 0, a.anzahl);
+    return a.typ === 'level' ? `Level ${stat.level} von ${a.anzahl}` : `${ist} von ${a.anzahl}`;
+  }
+  const neu = (ds) => {
+    const dt = parse(h);
+    dt.setDate(dt.getDate() - 7);
+    return ds >= iso(dt);
+  };
+</script>
+
+<div class="row" style="justify-content: space-between; align-items: center">
+  <h1 style="margin-bottom: 8px">Fortschritt</h1>
+  <button class="sek klein" on:click={() => gehe('messwerte')}>Messwerte eintragen</button>
+</div>
+
+{#if d}
+  <!-- Kennzahlen -->
+  <div class="kacheln">
+    <div class="kachel">
+      <span class="kachel-wert">{d.level.level}</span>
+      <span class="kachel-name">Level</span>
+      <div class="bar klein-bar" role="img" aria-label="{Math.round(d.level.fortschritt * 100)} Prozent bis zum nächsten Level"><div style="width: {Math.round(d.level.fortschritt * 100)}%"></div></div>
+    </div>
+    <div class="kachel">
+      <span class="kachel-wert">{d.stat.trainingstage}</span>
+      <span class="kachel-name">Trainingstage</span>
+      <span class="muted kachel-extra">{serie ? `${serie} ${serie === 1 ? 'Tag' : 'Tage'} am Stück` : 'Serie startet beim nächsten Training'}</span>
+    </div>
+    <div class="kachel">
+      <span class="kachel-wert">{kraft.length}</span>
+      <span class="kachel-name">{kraft.length === 1 ? 'Übung' : 'Übungen'} mit Bestwert</span>
+      <span class="muted kachel-extra">{d.stat.bestwerte} Bestwert-Boni</span>
+    </div>
+    <div class="kachel">
+      <span class="kachel-wert">{zieleErreicht.length}<span class="kachel-von">/{d.ziele.length}</span></span>
+      <span class="kachel-name">Ziele erreicht</span>
+      <span class="muted kachel-extra">{d.stand.verdient} XP gesammelt</span>
+    </div>
+  </div>
+
+  <div class="spalten">
+  <div>
+  <!-- Trainingstage -->
+  <h2>Trainingstage</h2>
+  <div class="card">
+    <div class="raster-wrap">
+      <div class="raster" style="--wochen: {WOCHEN}" role="group" aria-label="Trainingstage der letzten {WOCHEN} Wochen">
+        {#each TAGE as t, i}<span class="raster-tag muted" style="grid-row: {i + 1}">{i % 2 === 0 ? t : ''}</span>{/each}
+        {#each raster as woche, w}
+          {#each woche as tag, t}
+            <button
+              class="raster-zelle"
+              class:aktiv={rasterAktiv?.ds === tag.ds}
+              class:heute-zelle={tag.ds === h}
+              style="grid-column: {w + 2}; grid-row: {t + 1}; background: {tag.zukunft ? 'transparent' : STUFEN[stufe(tag.n)]}"
+              disabled={tag.zukunft}
+              aria-label="{kurz(tag.ds)}: {tag.n} {tag.n === 1 ? 'Übung' : 'Übungen'}"
+              on:pointerenter={() => (rasterAktiv = tag)}
+              on:focus={() => (rasterAktiv = tag)}
+              on:click={() => (rasterAktiv = tag)}
+            ></button>
+          {/each}
+        {/each}
+      </div>
+    </div>
+    <div class="row" style="justify-content: space-between; margin-top: 10px">
+      <span aria-live="polite">
+        {#if rasterAktiv}
+          <strong>{rasterAktiv.n}</strong> <span class="muted">{rasterAktiv.n === 1 ? 'Übung' : 'Übungen'} am {kurz(rasterAktiv.ds)}</span>
+          {#if rasterAktiv.n}<button class="link" style="margin-left: 6px; min-height: 0" on:click={() => gehe('kalender', { datum: rasterAktiv.ds })}>ansehen</button>{/if}
+        {:else}
+          <strong>{tageImRaster}</strong> <span class="muted">Trainingstage in {WOCHEN} Wochen</span>
+        {/if}
+      </span>
+      <span class="raster-legende muted" aria-hidden="true">
+        weniger {#each STUFEN.slice(1) as c}<span style="background: {c}"></span>{/each} mehr
+      </span>
+    </div>
+  </div>
+
+  <!-- Kraft -->
+  <h2 id="kraft">Kraftentwicklung</h2>
+  {#if !kraft.length}
+    <div class="card"><p class="muted" style="margin: 0">Sobald du im Training Sätze mit Gewicht abhakst, siehst du hier deine Kraft wachsen.</p></div>
+  {:else}
+    <div class="chips filter-zeile" role="group" aria-label="Übung">
+      {#each kraft as k (k.id)}
+        <button class="chip" class:an={kraftId === k.id} aria-pressed={kraftId === k.id} on:click={() => (kraftId = k.id)}>{k.name}</button>
+      {/each}
+    </div>
+    <div class="card" style="margin-top: 10px">
+      <div class="chips" role="group" aria-label="Zeitraum" style="margin-bottom: 12px">
+        {#each ZEITRAEUME as [id, label]}
+          <button class="chip klein-chip" class:an={zeitraum === id} aria-pressed={zeitraum === id} on:click={() => (zeitraum = id)}>{label}</button>
+        {/each}
+      </div>
+      {#if kraftPunkte.length}
+        <div class="mini-stats">
+          <div><span class="muted">Start</span><strong>{zahlText(kraftStart.wert)} kg</strong><span class="muted">{kurz(kraftStart.datum)}</span></div>
+          <div><span class="muted">Zuletzt</span><strong>{zahlText(kraftJetzt.wert)} kg</strong><span class="muted">{kurz(kraftJetzt.datum)}</span></div>
+          <div><span class="muted">Veränderung</span><strong>{kraftPlus === null ? '–' : (kraftPlus > 0 ? '+' : '') + kraftPlus + ' %'}</strong><span class="muted">im Zeitraum</span></div>
+        </div>
+        <LineChart series={[{ name: 'Schwerster Satz', farbe: LINKS, punkte: kraftPunkte }]} einheit="kg" />
+      {:else}
+        <p class="muted" style="margin: 0">In diesem Zeitraum kein Training mit Gewicht.</p>
+      {/if}
+    </div>
+
+    <h2>Bestwerte auf einen Blick</h2>
+    <div class="card">
+      {#each kraft as k (k.id)}
+        <button class="menue bestwert" on:click={() => kraftZeigen(k.id)}>
+          <span class="zeile-text">{k.name}<br /><span class="muted">{kurz(k.best.datum)}{neu(k.best.datum) ? ' · neu' : ''}</span></span>
+          <span class="bestwert-zahl"><strong>{zahlText(k.best.gewicht)} kg</strong>{#if k.best.wdh}<span class="muted"> × {k.best.wdh}</span>{/if}</span>
+        </button>
+      {/each}
+    </div>
+  {/if}
+
+  </div>
+  <div>
+  <!-- Ausgangssituation -->
+  <h2>Ausgangssituation und letzte Messung</h2>
+  {#if !vergleich.length}
+    <div class="card">
+      <p class="muted" style="margin-top: 0">Noch keine Messwerte. Miss am besten jetzt einmal Umfang an {stellen.map((s) => s.name).join(', ') || 'Wade und Oberschenkel'}: Das ist deine Ausgangssituation.</p>
+      <button class="sek" on:click={() => gehe('messwerte')}>Erste Messung eintragen</button>
+    </div>
+  {:else}
+    <div class="card">
+      {#each vergleich as r (r.id)}
+        <div class="vergleich">
+          <button class="vergleich-kopf" aria-expanded={offenReihe === r.id} on:click={() => (offenReihe = offenReihe === r.id ? null : r.id)}>
+            <strong>{r.name}</strong>
+            <span class="muted">{offenReihe === r.id ? 'Verlauf schließen' : 'Verlauf'} {offenReihe === r.id ? '▴' : '▾'}</span>
+          </button>
+          {#each r.zeilen as z}
+            <div class="vergleich-zeile">
+              <span class="muted">{seiteText(z.seite) || 'Wert'}</span>
+              <span>{zahlText(z.erst.wert)} <span class="muted">→</span> <strong>{zahlText(z.letzt.wert)}</strong> {r.einheit || ''}</span>
+              <span class="delta">{z.anzahl > 1 ? delta(z) : 'erste Messung'}</span>
+            </div>
+          {/each}
+          {#if r.zeilen.length && r.zeilen[0].anzahl > 1}
+            <p class="muted" style="margin: 2px 0 0; font-size: 0.8rem">{kurz(r.zeilen[0].erst.datum)} bis {kurz(r.zeilen[0].letzt.datum)}</p>
+          {/if}
+          {#if offenReihe === r.id}
+            <div style="margin-top: 10px"><LineChart series={reiheSerien(r)} einheit={r.einheit || ''} hoehe={150} /></div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+
+  <!-- Ziele -->
+  <div class="row" style="justify-content: space-between; align-items: baseline">
+    <h2>Ziele</h2>
+    <button class="link" on:click={() => gehe('ziele')}>Alle Ziele</button>
+  </div>
+  <div class="card">
+    {#if !d.ziele.length}
+      <p class="muted" style="margin-top: 0">Noch keine Ziele.</p>
+      <button class="sek" on:click={() => gehe('ziele')}>Ziel anlegen</button>
+    {/if}
+    {#each zieleOffen as z (z.id)}
+      <div class="ziel-zeile">
+        <div class="ziel-stand" style="margin: 0 0 6px">
+          <span>{z.titel}</span>
+          <span>
+            {#if z.art === 'mess'}<strong>{zahlText(z.aktuell)}</strong><span class="muted">/{zahlText(z.ziel)} {z.einheit || ''} · {Math.round(z.anteil * 100)} %</span>
+            {:else}<span class="muted">offen</span>{/if}
+          </span>
+        </div>
+        <div class="bar" role="img" aria-label="{Math.round(z.anteil * 100)} Prozent erreicht"><div style="width: {Math.round(z.anteil * 100)}%"></div></div>
+      </div>
+    {/each}
+    {#each zieleErreicht as z (z.id)}
+      <div class="zeile" style="min-height: 44px">
+        <span class="ziel-stern" aria-hidden="true">★</span>
+        <span class="zeile-text">{z.titel}</span>
+        <span class="muted">erreicht {kurz(z.erreicht)}</span>
+      </div>
+    {/each}
+  </div>
+
+  <!-- Abzeichen -->
+  <h2>Abzeichen</h2>
+  <div class="card">
+    <div class="abzeichen">
+      {#each d.abzeichen as a (a.id)}
+        <div class="abz" class:offen={abzErreicht(a, d.stat)}>
+          <span class="abz-kreis" aria-hidden="true">{abzErreicht(a, d.stat) ? '★' : '○'}</span>
+          <span>{a.name}</span>
+          <span class="muted" style="font-size: 0.75rem">{abzErreicht(a, d.stat) ? 'erreicht' : `${bedingungText(a)} · ${abzFortschritt(a, d.stat)}`}</span>
+        </div>
+      {/each}
+    </div>
+    {#if !d.abzeichen.length}<p class="muted" style="margin: 0">Noch keine Abzeichen angelegt.</p>{/if}
+  </div>
+  </div>
+  </div>
+{/if}
