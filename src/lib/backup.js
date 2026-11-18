@@ -1,25 +1,8 @@
 import { db, TABELLEN, setEinstellung } from './db.js';
+import { verschluesseln, entschluesseln } from './krypto.js';
 
 const FORMAT = 'reha-app-backup';
 const VERSION = 1;
-
-function toB64(buf) {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
-}
-function fromB64(s) {
-  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
-}
-
-async function schluesselAus(passwort, salt) {
-  const roh = await crypto.subtle.importKey('raw', new TextEncoder().encode(passwort), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: 250000, hash: 'SHA-256' },
-    roh,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
 
 export async function alleDaten() {
   const daten = {};
@@ -33,18 +16,7 @@ export async function backupErzeugen(passwort) {
   const klartext = JSON.stringify({ format: FORMAT, version: VERSION, erstellt: new Date().toISOString(), daten });
   if (!passwort) return klartext;
 
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await schluesselAus(passwort, salt);
-  const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(klartext));
-  return JSON.stringify({
-    format: FORMAT,
-    version: VERSION,
-    verschluesselt: true,
-    salt: toB64(salt),
-    iv: toB64(iv),
-    daten: toB64(cipher)
-  });
+  return JSON.stringify({ format: FORMAT, version: VERSION, verschluesselt: true, ...(await verschluesseln(klartext, passwort)) });
 }
 
 export async function backupHerunterladen(passwort) {
@@ -67,9 +39,7 @@ export async function backupWiederherstellen(dateiText, passwort) {
   if (obj.verschluesselt) {
     if (!passwort) throw new Error('Passwort fehlt.');
     try {
-      const key = await schluesselAus(passwort, fromB64(obj.salt));
-      const klar = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(obj.iv) }, key, fromB64(obj.daten));
-      obj = JSON.parse(new TextDecoder().decode(klar));
+      obj = JSON.parse(await entschluesseln(obj, passwort));
     } catch {
       throw new Error('Passwort falsch oder Datei beschädigt.');
     }

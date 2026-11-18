@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import { db, getEinstellung, setEinstellung, neueUid } from './db.js';
 import { regeln, schwellen } from './xp.js';
 import { textHerunterladen } from './datei.js';
+import { verschluesseln, entschluesseln } from './krypto.js';
 
 // Nur im Arbeitsspeicher: nach Neuladen der App oder Verlassen des Bereichs wieder gesperrt.
 export const entsperrt = writable(false);
@@ -48,8 +49,10 @@ function ohneId(liste) {
   return liste.map(({ id, ...rest }) => rest);
 }
 
-export async function packErzeugen() {
-  return JSON.stringify({
+// Der Pack wird immer mit einem Passwort verschlüsselt, damit niemand die Briefe vorher lesen kann.
+export async function packErzeugen(passwort) {
+  if (!passwort) throw new Error('Passwort fehlt.');
+  const inhalt = JSON.stringify({
     format: PACK_FORMAT,
     version: 1,
     erstellt: new Date().toISOString(),
@@ -59,14 +62,15 @@ export async function packErzeugen() {
     levelSchwellen: await schwellen(),
     xpRegeln: await regeln()
   });
+  return JSON.stringify({ format: PACK_FORMAT, version: 2, verschluesselt: true, ...(await verschluesseln(inhalt, passwort)) });
 }
 
-export async function packHerunterladen() {
-  textHerunterladen(await packErzeugen(), `reha-pack-${new Date().toISOString().slice(0, 10)}.json`);
+export async function packHerunterladen(passwort) {
+  textHerunterladen(await packErzeugen(passwort), `reha-pack-${new Date().toISOString().slice(0, 10)}.json`);
 }
 
-// Ersetzt Belohnungen, Briefe, Abzeichen, Level und XP-Regeln. Fortschritt (XP, Einlösungen) bleibt.
-export async function packImportieren(text) {
+// Liest die Datei und sagt, ob für den Import ein Passwort nötig ist
+export function packPruefen(text) {
   let p;
   try {
     p = JSON.parse(text);
@@ -74,6 +78,21 @@ export async function packImportieren(text) {
     throw new Error('Die Datei ist kein gültiges Pack.');
   }
   if (p.format !== PACK_FORMAT) throw new Error('Das ist keine Pack-Datei dieser App.');
+  return { verschluesselt: !!p.verschluesselt };
+}
+
+// Ersetzt Belohnungen, Briefe, Abzeichen, Level und XP-Regeln. Fortschritt (XP, Einlösungen) bleibt.
+export async function packImportieren(text, passwort = '') {
+  packPruefen(text);
+  let p = JSON.parse(text);
+  if (p.verschluesselt) {
+    if (!passwort) throw new Error('Bitte das Pack-Passwort eingeben.');
+    try {
+      p = JSON.parse(await entschluesseln(p, passwort));
+    } catch {
+      throw new Error('Passwort falsch oder Datei beschädigt.');
+    }
+  }
 
   await db.transaction('rw', db.belohnungen, db.briefe, db.abzeichen, db.einstellungen, async () => {
     for (const [tabelle, liste] of [['belohnungen', p.belohnungen], ['briefe', p.briefe], ['abzeichen', p.abzeichen]]) {

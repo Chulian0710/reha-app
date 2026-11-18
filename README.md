@@ -72,7 +72,7 @@ Eingeplante Einzelübungen sind `planEintraege` mit `datum` statt `planId`/`woch
 
 - **Backup** (JSON, optional mit Passwort verschlüsselt): alle Daten, lässt sich wieder importieren.
 - **PDF-Bericht**: nur zum Zeigen, kein Backup.
-- **Pack**: Inhalte aus dem Betreuer-Bereich, Import unter Mehr → Daten. Fortschritt bleibt.
+- **Pack**: Inhalte aus dem Betreuer-Bereich, immer mit Passwort verschlüsselt (AES-GCM, `src/lib/krypto.js`). Import unter Mehr → Daten mit demselben Passwort. Fortschritt bleibt. Ältere unverschlüsselte Packs lassen sich weiter importieren.
 
 Der Betreuer-Bereich ist ein Spoilerschutz, keine Verschlüsselung: Briefe liegen lesbar im Browserspeicher.
 
@@ -80,4 +80,3 @@ Der Betreuer-Bereich ist ein Spoilerschutz, keine Verschlüsselung: Briefe liege
 
 - Wochenrückblick
 - App-PIN mit Verschlüsselung der lokalen Daten
-- Kraftwerte direkt beim Abhaken einer Planübung speichern

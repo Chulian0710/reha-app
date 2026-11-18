@@ -3,18 +3,35 @@
   import { db } from '../lib/db.js';
   import { backupHerunterladen, backupWiederherstellen } from '../lib/backup.js';
   import { berichtErzeugen } from '../lib/report.js';
-  import { packImportieren } from '../lib/betreuer.js';
+  import { packImportieren, packPruefen } from '../lib/betreuer.js';
 
   let packInput;
   let packMeldung = '';
+  let packText = null; // gewählte Datei, wartet auf Passwort
+  let packPasswort = '';
   async function packLaden(ev) {
     const datei = ev.target.files[0];
     ev.target.value = '';
+    packMeldung = '';
+    packText = null;
+    packPasswort = '';
     if (!datei) return;
+    try {
+      const text = await datei.text();
+      const { verschluesselt } = packPruefen(text);
+      if (verschluesselt) packText = text;
+      else await packEinspielen(text, '');
+    } catch (e) {
+      packMeldung = e.message;
+    }
+  }
+  async function packEinspielen(text, pw) {
     if (!confirm('Belohnungen, Briefe, Abzeichen und Level-Stufen werden durch das Pack ersetzt. Deine XP und Einträge bleiben. Fortfahren?')) return;
     try {
-      await packImportieren(await datei.text());
-      packMeldung = 'Pack wurde importiert.';
+      await packImportieren(text, pw);
+      packText = null;
+      packPasswort = '';
+      packMeldung = 'Pack wurde importiert. Die Datei kannst du jetzt in der Dateien-App löschen.';
     } catch (e) {
       packMeldung = e.message;
     }
@@ -89,6 +106,14 @@
   <p class="muted" style="margin-top: 0">Ein Pack enthält Belohnungen, Briefe, Abzeichen und Level-Stufen aus dem Betreuer-Bereich, z. B. von einem anderen Gerät.</p>
   <button class="sek" on:click={() => packInput.click()}>Pack-Datei wählen</button>
   <input bind:this={packInput} type="file" accept="application/json,.json" on:change={packLaden} style="display: none" />
+  {#if packText}
+    <label for="packpw">Pack-Passwort</label>
+    <input id="packpw" type="password" autocomplete="off" bind:value={packPasswort} on:keydown={(e) => e.key === 'Enter' && packPasswort && packEinspielen(packText, packPasswort)} />
+    <div class="row" style="margin-top: 10px">
+      <button on:click={() => packEinspielen(packText, packPasswort)} disabled={!packPasswort}>Importieren</button>
+      <button class="sek" on:click={() => { packText = null; packPasswort = ''; packMeldung = ''; }}>Abbrechen</button>
+    </div>
+  {/if}
   {#if packMeldung}<p class="hinweis">{packMeldung}</p>{/if}
 </div>
 

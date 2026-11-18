@@ -126,6 +126,21 @@
     if (confirm(`Abzeichen „${a.name}“ löschen?`)) await db.abzeichen.delete(a.id);
   }
 
+  // Pack (immer verschlüsselt)
+  let packPw = '';
+  let packPw2 = '';
+  let packMeldung = '';
+  async function packExport() {
+    packMeldung = '';
+    try {
+      await packHerunterladen(packPw);
+      packPw = packPw2 = '';
+      packMeldung = 'Pack exportiert. Nach dem Import auf dem anderen Handy die Datei dort und hier löschen.';
+    } catch (e) {
+      packMeldung = e.message;
+    }
+  }
+
   // XP-Regeln
   async function regelnSpeichern() {
     await setEinstellung('xpRegeln', {
@@ -280,7 +295,14 @@
 
   <h2>Pack</h2>
   <div class="card">
-    <p class="muted" style="margin-top: 0">Exportiert Belohnungen, Briefe, Abzeichen, Level und XP-Regeln als Datei. Auf dem anderen Gerät unter Mehr, Daten importieren. Der Fortschritt dort bleibt erhalten.</p>
-    <button on:click={packHerunterladen}>Pack exportieren</button>
+    <p class="muted" style="margin-top: 0">Exportiert Belohnungen, Briefe, Abzeichen, Level und XP-Regeln als verschlüsselte Datei. Auf dem anderen Handy unter Mehr → Daten importieren, dort wird das Passwort abgefragt. Der Fortschritt dort bleibt erhalten.</p>
+    <label for="packpw">Passwort für den Pack (mindestens 4 Zeichen)</label>
+    <input id="packpw" type="password" autocomplete="new-password" bind:value={packPw} />
+    <label for="packpw2">Passwort wiederholen</label>
+    <input id="packpw2" type="password" autocomplete="new-password" bind:value={packPw2} />
+    <p class="muted">Am einfachsten dasselbe wie dein Betreuer-Passwort. Ohne dieses Passwort lässt sich der Pack nicht öffnen.</p>
+    {#if packPw2 && packPw !== packPw2}<p class="fehler">Die Passwörter stimmen nicht überein.</p>{/if}
+    <button on:click={packExport} disabled={packPw.length < 4 || packPw !== packPw2}>Pack exportieren</button>
+    {#if packMeldung}<p class="hinweis">{packMeldung}</p>{/if}
   </div>
 {/if}
