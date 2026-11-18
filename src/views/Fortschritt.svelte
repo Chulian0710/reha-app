@@ -139,6 +139,7 @@
       .filter((r) => r.werte.length)
       .sort((a, b) => a.rang - b.rang || a.name.localeCompare(b.name, 'de'));
   })();
+  $: letzteMessung = vergleich.length ? vergleich.flatMap((r) => r.werte.map((w) => w.datum)).sort().pop() : null;
   let offenReihe = null;
   function reiheSerien(r) {
     const seitig = r.zeilen.some((z) => z.seite !== '-');
@@ -169,10 +170,7 @@
   };
 </script>
 
-<div class="row" style="justify-content: space-between; align-items: center">
-  <h1 style="margin-bottom: 8px">Fortschritt</h1>
-  <button class="sek klein" on:click={() => gehe('messwerte')}>Messwerte eintragen</button>
-</div>
+<h1>Fortschritt</h1>
 
 {#if d}
   <!-- Kennzahlen -->
@@ -280,15 +278,16 @@
 
   </div>
   <div>
-  <!-- Ausgangssituation -->
-  <h2>Ausgangssituation und letzte Messung</h2>
+  <!-- Messwerte: Ausgangssituation vs. letzte Messung, Eintragen -->
+  <h2>Messwerte</h2>
   {#if !vergleich.length}
     <div class="card">
       <p class="muted" style="margin-top: 0">Noch keine Messwerte. Miss am besten jetzt einmal Umfang an {stellen.map((s) => s.name).join(', ') || 'Wade und Oberschenkel'}: Das ist deine Ausgangssituation.</p>
-      <button class="sek" on:click={() => gehe('messwerte')}>Erste Messung eintragen</button>
+      <button class="breit" on:click={() => gehe('messwerte')}>Erste Messung eintragen</button>
     </div>
   {:else}
     <div class="card">
+      <p class="muted" style="margin: 0 0 4px">Ausgangssituation → letzte Messung</p>
       {#each vergleich as r (r.id)}
         <div class="vergleich">
           <button class="vergleich-kopf" aria-expanded={offenReihe === r.id} on:click={() => (offenReihe = offenReihe === r.id ? null : r.id)}>
@@ -310,6 +309,10 @@
           {/if}
         </div>
       {/each}
+      <div class="messung-fuss">
+        <button class="breit" on:click={() => gehe('messwerte')}>Neue Messung eintragen</button>
+        {#if letzteMessung}<p class="muted" style="margin: 6px 0 0; text-align: center">Zuletzt gemessen am {kurz(letzteMessung)}</p>{/if}
+      </div>
     </div>
   {/if}
 
