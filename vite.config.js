@@ -20,7 +20,7 @@ export default defineConfig({
         description: 'Reha- und Motivations-App. Alle Daten bleiben auf deinem Gerät.',
         lang: 'de',
         theme_color: '#2f6f6a',
-        background_color: '#121519', // Startbildschirm passend zum Icon
+        background_color: '#000000', // Startbildschirm passend zum Icon
         display: 'standalone',
         start_url: base,
         scope: base,
