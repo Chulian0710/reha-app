@@ -1,5 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="110" fill="#2f6f6a"/>
-  <path d="M150 300 L230 220 L290 280 L370 180" fill="none" stroke="#f6f4ef" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="370" cy="180" r="26" fill="#f6f4ef"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Drei Disziplinen, steigender Fortschritt, rotes Ziel -->
+  <rect width="1024" height="1024" fill="#121519"/>
+  <path d="M148.0,788.0 L278.0,788.0 L351.8,516.0 L221.8,516.0 Z" fill="#f4f3ef" stroke="#f4f3ef" stroke-width="48" stroke-linejoin="round"/>
+  <path d="M374.0,788.0 L504.0,788.0 L612.7,376.0 L482.7,376.0 Z" fill="#f4f3ef" stroke="#f4f3ef" stroke-width="48" stroke-linejoin="round"/>
+  <path d="M600.0,788.0 L730.0,788.0 L873.6,236.0 L743.6,236.0 Z" fill="#e3342b" stroke="#e3342b" stroke-width="48" stroke-linejoin="round"/>
 </svg>
