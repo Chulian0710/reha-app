@@ -1,3 +1,8 @@
 node_modules
 dist
 .DS_Store
+
+# Persönliche Daten nie ins Repository: Backups, Packs, Berichte aus der App
+reha-backup-*.json
+reha-pack-*.json
+reha-bericht-*.pdf
