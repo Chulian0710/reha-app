@@ -23,7 +23,7 @@ Hinweis: GitHub Pages aus einem privaten Repo ist je nach GitHub-Tarif nicht ver
 
 ## Aufbau
 
-Navigation: Heute · Kalender · ＋ (Anlegen: Plan, Ziel, Messwert) · Fortschritt · Mehr (Tagebuch, Shop, Daten, Betreuer-Bereich)
+Navigation: Heute · Kalender · ＋ (Anlegen: Plan, Ziel, Messwert) · Fortschritt · Mehr (Tagebuch, Briefe, Shop, Daten, Betreuer-Bereich; jeweils mit Icon)
 
 Buttons färben sich beim Antippen kurz ein (`gedrueckt` in `src/main.js`, Styles am Ende von `src/app.css`).
 
@@ -33,13 +33,14 @@ Buttons färben sich beim Antippen kurz ein (`gedrueckt` in `src/main.js`, Style
 - Listen: nach links wischen zum Löschen/Ändern, ganz durchwischen löscht. Danach erscheint unten „Rückgängig“. Mit der Maus erscheinen die Knöpfe beim Darüberfahren (`src/lib/SwipeRow.svelte`, `src/lib/toast.js`).
 - Laptop (ab 900 px): Seitenleiste statt Tab-Leiste, ab 1100 px zweispaltig. Tasten: ← → wechselt auf „Heute“ den Tag (T = heute), im Kalender wählen Pfeiltasten Tage und Bild ↑/↓ den Monat, Esc geht zurück.
 
-- **Heute:** Tage wechseln (‹ ›), Level, Gels mit Link zum Shop, Termine, Plan des Tages zum Abhaken (auch nachträglich, nicht im Voraus), Ruhetag, Aktivitäten, Tagebuch des Tages
+- **Heute:** ungeöffnete Briefe ganz oben (öffnen mit Umschlag-Animation, `src/lib/BriefOeffnen.svelte`), Tage wechseln (‹ ›), Level, Gels mit Link zum Shop, Termine, Plan des Tages zum Abhaken (auch nachträglich, nicht im Voraus), Ruhetag, Aktivitäten, Tagebuch des Tages
 - **Physiotherapie:** auf „Heute“ als erste Aktivität eintragen oder einen Termin der Art „Physiotherapie“ mit „Ich war da“ abhaken (beides `ref` `physio:<datum>`, also einmal pro Tag). Zählt für XP und für Abzeichen vom Typ „Physio-Besuche“; „Erster Physio-Besuch“ und „10 Physio-Besuche“ werden einmalig angelegt.
 - **Kalender:** Monatsansicht mit Status je Tag, Tagesdetails; einzelne Übungen für einen Tag einplanen (zusätzlich zum Wochenplan, abhaken unter „Heute“ mit XP) und Termine eintragen (z. B. Physio, Arzt)
 - **Plan:** Pläne mit Zeitraum, Übungen je Wochentag (Sätze, Wdh., Gewicht, XP), Physio-Plan als PDF/Foto. Beim Anhängen einer PDF landen die erkannten Übungen automatisch in der Bibliothek (Filter „Physio“).
 - **Übungen:** Kategorien Kraft, Ausdauer (Schwimmen, Radfahren, Gehen, Joggen; ohne Sätze), Mobility, Reha. Suche in eigener Bibliothek (`src/lib/bibliothek.js`, nur Namen), eigene Übungen, Übungen vom Physio
 - **Ziele:** mit Messwert (Gewicht aus dem Training, Messwert wie Umfang, eigener Wert wie Minuten spazieren) oder ohne Messwert (z. B. „erster Sprung“). Ziele mit Messwert haken sich automatisch ab.
-- **Fortschritt:** Kennzahlen, Trainingstage (16 Wochen), Kraftentwicklung je Übung aus den Trainingssätzen, Bestwerte, Ausgangssituation vs. letzte Messung, Ziele, Abzeichen, Briefe (ungelesene mit „neu“)
+- **Fortschritt:** Kennzahlen, Trainingstage (16 Wochen), Kraftentwicklung je Übung aus den Trainingssätzen, Bestwerte, Ausgangssituation vs. letzte Messung, Ziele, Abzeichen
+- **Briefe** (Mehr): alle geöffneten Briefe, ungeöffnete zum Öffnen, Hinweis auf noch verschlossene (`src/lib/briefe.js`, gelesen = Einstellung `briefeGelesen`)
 - **Shop:** Belohnungen mit Gels einlösen, eigene Belohnungen wünschen, Verlauf (eingelöst, erhalten, geschenkt)
 - **Messwerte:** Umfang (Wade, Wade angespannt, Oberschenkel unten, Oberschenkel oben, Po; jeweils links und rechts) und weitere Werte. Kraft wird nicht mehr von Hand eingetragen.
 - **Betreuer-Bereich:** Passwort, Wünsche freigeben (Preis festlegen) oder ablehnen, eingelöste Belohnungen als übergeben markieren, Shop-Belohnungen, Gels schenken, Level-Stufen, Briefe, Abzeichen, XP-Regeln, Gels pro Level-Aufstieg und pro Abzeichen, Pack-Export

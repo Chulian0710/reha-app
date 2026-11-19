@@ -218,7 +218,7 @@
             <button on:click={schliessen}>Schließen</button>
           {/if}
         </div>
-        <p class="muted" style="text-align: center; margin: 8px 0 0">Du findest alle Briefe unter Fortschritt.</p>
+        <p class="muted" style="text-align: center; margin: 8px 0 0">Du findest alle Briefe unter Mehr → Briefe.</p>
       {/if}
     </div>
   </div>

@@ -10,6 +10,13 @@
   import SwipeRow from '../lib/SwipeRow.svelte';
   import { loeschenMitUndo, zeigeToast, toast } from '../lib/toast.js';
   import Gel from '../lib/Gel.svelte';
+  import Sheet from '../lib/Sheet.svelte';
+  import BriefOeffnen from '../lib/BriefOeffnen.svelte';
+  import { briefStand } from '../lib/briefe.js';
+
+  // Ungeöffnete Briefe stehen ganz oben (nur bei „Heute“)
+  const briefe = liveQuery(briefStand);
+  let offenerBrief = null;
 
   export let params = {};
 
@@ -129,6 +136,18 @@
 {/if}
 
 {#if d}
+  {#if datum === h && $briefe?.ungeoeffnet.length}
+    <div class="card brief-karte">
+      {#each $briefe.ungeoeffnet as b (b.id)}
+        <div class="zeile">
+          <span class="brief-mini" aria-hidden="true"><span></span></span>
+          <span class="zeile-text"><strong>Ein Brief für dich</strong><br /><span class="muted">freigeschaltet mit Level {b.level}</span></span>
+          <button on:click={() => (offenerBrief = b)}>Öffnen</button>
+        </div>
+      {/each}
+    </div>
+  {/if}
+
   <div class="spalten">
   <div>
   <div class="card">
@@ -263,3 +282,7 @@
   </div>
   </div>
 {/if}
+
+<Sheet offen={offenerBrief !== null} titel="Brief" onclose={() => (offenerBrief = null)}>
+  {#if offenerBrief}{#key offenerBrief.id}<BriefOeffnen brief={offenerBrief} />{/key}{/if}
+</Sheet>

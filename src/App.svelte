@@ -10,6 +10,7 @@
   import Mehr from './views/Mehr.svelte';
   import Tagebuch from './views/Tagebuch.svelte';
   import Shop from './views/Shop.svelte';
+  import Briefe from './views/Briefe.svelte';
   import Daten from './views/Daten.svelte';
   import Betreuer from './views/Betreuer.svelte';
   import PdfImport from './views/PdfImport.svelte';
@@ -26,7 +27,7 @@
     { id: 'fortschritt', label: 'Fortschritt', icon: 'M4 19h16M6 15l4-4 3 3 6-7' },
     { id: 'mehr', label: 'Mehr', icon: 'M6 12h.01M12 12h.01M18 12h.01' }
   ];
-  const gruppe = { plan: 'anlegen', uebungen: 'anlegen', pdfimport: 'anlegen', ziele: 'anlegen', messwerte: 'anlegen', tagebuch: 'mehr', shop: 'mehr', daten: 'mehr', betreuer: 'mehr' };
+  const gruppe = { plan: 'anlegen', uebungen: 'anlegen', pdfimport: 'anlegen', ziele: 'anlegen', messwerte: 'anlegen', tagebuch: 'mehr', briefe: 'mehr', shop: 'mehr', daten: 'mehr', betreuer: 'mehr' };
 
   $: seite = $ansicht.seite;
   $: params = $ansicht.params;
@@ -88,6 +89,7 @@
   {:else if seite === 'fortschritt'}<Fortschritt />
   {:else if seite === 'mehr'}<Mehr />
   {:else if seite === 'tagebuch'}<Tagebuch />
+  {:else if seite === 'briefe'}<Briefe />
   {:else if seite === 'shop'}<Shop />
   {:else if seite === 'daten'}<Daten />
   {:else if seite === 'betreuer'}<Betreuer />

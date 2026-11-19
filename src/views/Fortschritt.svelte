@@ -7,7 +7,6 @@
   import { statistik, erreicht as abzErreicht, bedingungText, fortschrittText } from '../lib/abzeichen.js';
   import { zieleMitStand, zielePruefen, umfangReihen, UMFANG_STELLEN, zahlText } from '../lib/ziele.js';
   import { gehe } from '../lib/nav.js';
-  import { gelesene, alsGelesen } from '../lib/briefe.js';
   import LineChart from '../lib/LineChart.svelte';
   import Medaille from '../lib/Medaille.svelte';
 
@@ -35,8 +34,6 @@
       werte,
       ziele: await zieleMitStand(),
       abzeichen: await db.abzeichen.toArray(),
-      briefe: (await db.briefe.toArray()).sort((a, b) => a.level - b.level),
-      gelesen: await gelesene(),
       stat: await statistik()
     };
   });
@@ -367,23 +364,6 @@
     </div>
     {#if !d.abzeichen.length}<p class="muted" style="margin: 0">Noch keine Abzeichen angelegt.</p>{/if}
   </div>
-
-  <!-- Briefe -->
-  {#if d.briefe.length}
-    <h2>Briefe</h2>
-    <div class="card">
-      {#each d.briefe as b (b.id)}
-        {#if d.level.level >= b.level}
-          <details class="brief" on:toggle={(ev) => ev.currentTarget.open && alsGelesen(b.uid)}>
-            <summary><strong>{b.titel || 'Brief'}</strong> <span class="muted">· Level {b.level}</span>{#if !d.gelesen.has(b.uid)}<span class="marke neu">neu</span>{/if}</summary>
-            <p style="white-space: pre-line">{b.text}</p>
-          </details>
-        {:else}
-          <div class="zeile"><span class="zeile-text">✉ Verschlossener Brief</span><span class="muted">öffnet bei Level {b.level}</span></div>
-        {/if}
-      {/each}
-    </div>
-  {/if}
   </div>
   </div>
 {/if}
