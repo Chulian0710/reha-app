@@ -34,6 +34,7 @@ Buttons färben sich beim Antippen kurz ein (`gedrueckt` in `src/main.js`, Style
 - Laptop (ab 900 px): Seitenleiste statt Tab-Leiste, ab 1100 px zweispaltig. Tasten: ← → wechselt auf „Heute“ den Tag (T = heute), im Kalender wählen Pfeiltasten Tage und Bild ↑/↓ den Monat, Esc geht zurück.
 
 - **Heute:** Tage wechseln (‹ ›), Level, Gels mit Link zum Shop, Termine, Plan des Tages zum Abhaken (auch nachträglich, nicht im Voraus), Ruhetag, Aktivitäten, Tagebuch des Tages
+- **Physiotherapie:** auf „Heute“ als erste Aktivität eintragen oder einen Termin der Art „Physiotherapie“ mit „Ich war da“ abhaken (beides `ref` `physio:<datum>`, also einmal pro Tag). Zählt für XP und für Abzeichen vom Typ „Physio-Besuche“; „Erster Physio-Besuch“ und „10 Physio-Besuche“ werden einmalig angelegt.
 - **Kalender:** Monatsansicht mit Status je Tag, Tagesdetails; einzelne Übungen für einen Tag einplanen (zusätzlich zum Wochenplan, abhaken unter „Heute“ mit XP) und Termine eintragen (z. B. Physio, Arzt)
 - **Plan:** Pläne mit Zeitraum, Übungen je Wochentag (Sätze, Wdh., Gewicht, XP), Physio-Plan als PDF/Foto. Beim Anhängen einer PDF landen die erkannten Übungen automatisch in der Bibliothek (Filter „Physio“).
 - **Übungen:** Kategorien Kraft, Ausdauer (Schwimmen, Radfahren, Gehen, Joggen; ohne Sätze), Mobility, Reha. Suche in eigener Bibliothek (`src/lib/bibliothek.js`, nur Namen), eigene Übungen, Übungen vom Physio
@@ -57,6 +58,7 @@ Buttons färben sich beim Antippen kurz ein (`gedrueckt` in `src/main.js`, Style
 | Übung abgehakt (Plan oder eingeplant) | 7 (pro Planeintrag änderbar) |
 | Neuer Bestwert (Kraft) | 30, höchstens 1× pro Übung und Woche (abschaltbar) |
 | Ziel erreicht | 50 |
+| Physiotherapie besucht | 25, höchstens 1× pro Tag |
 | Aktivitäten | je Aktivität einstellbar (Standard 10), Liste im Betreuer-Bereich |
 | Eigene Aktivität („Etwas anderes“) | 10 |
 | Ruhetag | wie die letzte Trainingseinheit, oder fester Wert |
@@ -74,7 +76,7 @@ XP bestimmen Level, Abzeichen und Briefe. Gels sind zum Ausgeben im Shop und hab
 
 ## Abzeichen
 
-Bedingungen: eine bestimmte Übung, Messwerte, Trainingstage, Bestwerte (alle Übungen), Ziele, Level.
+Bedingungen: eine bestimmte Übung, Physio-Besuche, Messwerte, Trainingstage, Bestwerte (alle Übungen), Ziele, Level.
 Bei „Eine bestimmte Übung“ zählt wahlweise, an wie vielen Tagen sie gemacht wurde (1 = „zum ersten Mal“), das schwerste Gewicht oder wie oft es einen neuen Bestwert gab. Gespeichert wird der Name der Übung, damit es auch nach einem Pack-Import auf einem anderen Gerät passt (`src/lib/abzeichen.js`).
 Abzeichen lassen sich bearbeiten (die `uid` bleibt, bereits vergebene Gels ändern sich nicht).
 Darstellung als Medaille mit dem IRONKIM-„M“ samt Punkt (`src/lib/Medaille.svelte`): erreicht in Gold/Schwarz/Rot mit gelegentlichem Lichtreflex, sonst grau. Antippen dreht sie, in der Feier fällt sie herein und pendelt aus.

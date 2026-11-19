@@ -3,6 +3,7 @@ import { levelInfo, schwellen } from './xp.js';
 
 export const BEDINGUNGEN = {
   uebung: 'Eine bestimmte Übung',
+  physio: 'Physio-Besuche',
   messwerte: 'Messwerte eingetragen',
   trainingstage: 'Trainingstage',
   bestwerte: 'Bestwerte (alle Übungen)',
@@ -18,10 +19,16 @@ export const KRITERIEN = {
   bestwert: { label: 'Neuer Bestwert', feld: 'Wie viele Bestwerte' }
 };
 
+export const PHYSIO_ABZEICHEN = [
+  { name: 'Erster Physio-Besuch', typ: 'physio', anzahl: 1, gels: 5 },
+  { name: '10 Physio-Besuche', typ: 'physio', anzahl: 10, gels: 15 }
+];
+
 export const STANDARD_ABZEICHEN = [
   { name: 'Erste Messung', typ: 'messwerte', anzahl: 1, gels: 5 },
   { name: 'Erster Bestwert', typ: 'bestwerte', anzahl: 1, gels: 5 },
-  { name: 'Sieben Trainingstage', typ: 'trainingstage', anzahl: 7, gels: 5 }
+  { name: 'Sieben Trainingstage', typ: 'trainingstage', anzahl: 7, gels: 5 },
+  ...PHYSIO_ABZEICHEN
 ];
 
 const schluessel = (name) => String(name || '').trim().toLowerCase();
@@ -69,6 +76,7 @@ export async function statistik() {
     messwerte: await db.werte.count(),
     trainingstage: new Set(erledigt.map((e) => e.datum)).size,
     bestwerte: log.filter((e) => e.ref && e.ref.startsWith('bestwert:')).length,
+    physio: log.filter((e) => e.ref && e.ref.startsWith('physio:')).length,
     ziele: (await db.ziele.toArray()).filter((z) => z.erreicht).length,
     level: levelInfo(verdient, await schwellen()).level,
     uebungen: await uebungStatistik()
@@ -89,6 +97,7 @@ const kg = (z) => String(z).replace('.', ',');
 
 export function bedingungText(a) {
   if (a.typ === 'level') return `Level ${a.anzahl}`;
+  if (a.typ === 'physio') return a.anzahl === 1 ? 'Erster Physio-Besuch' : `${a.anzahl} Physio-Besuche`;
   if (a.typ === 'uebung') {
     const k = a.kriterium || 'anzahl';
     if (k === 'gewicht') return `${a.uebung} mit ${kg(a.anzahl)} kg`;
@@ -105,11 +114,20 @@ export function fortschrittText(a, stat) {
   return `${Math.min(ist, a.anzahl)} von ${a.anzahl}`;
 }
 
-// Beim allerersten Start Standard-Abzeichen anlegen
+// Beim allerersten Start Standard-Abzeichen anlegen.
+// Bestehende Installationen bekommen die Physio-Abzeichen einmalig dazu (danach frei änderbar oder löschbar).
 export async function ersteinrichtung() {
-  if (await getEinstellung('eingerichtet')) return;
-  if ((await db.abzeichen.count()) === 0) {
-    await db.abzeichen.bulkAdd(STANDARD_ABZEICHEN.map((a) => ({ ...a, uid: neueUid() })));
+  if (!(await getEinstellung('eingerichtet'))) {
+    if ((await db.abzeichen.count()) === 0) {
+      await db.abzeichen.bulkAdd(STANDARD_ABZEICHEN.map((a) => ({ ...a, uid: neueUid() })));
+    }
+    await setEinstellung('eingerichtet', true);
+    await setEinstellung('physioAbzeichen', true);
+    return;
   }
-  await setEinstellung('eingerichtet', true);
+  if (!(await getEinstellung('physioAbzeichen'))) {
+    const da = (await db.abzeichen.toArray()).some((a) => a.typ === 'physio');
+    if (!da) await db.abzeichen.bulkAdd(PHYSIO_ABZEICHEN.map((a) => ({ ...a, uid: neueUid() })));
+    await setEinstellung('physioAbzeichen', true);
+  }
 }

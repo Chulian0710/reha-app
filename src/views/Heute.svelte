@@ -2,7 +2,7 @@
   import { liveQuery } from 'dexie';
   import { db } from '../lib/db.js';
   import { heute, anzeige, iso, parse } from '../lib/datum.js';
-  import { levelInfo, levelGels, gelsFuerLevel, xpVergeben, xpEintragen, regeln, schwellen, punktestand, aktivitaeten as aktivitaetenLaden, ruhetagPunkte } from '../lib/xp.js';
+  import { levelInfo, levelGels, gelsFuerLevel, xpVergeben, xpEintragen, physioEintragen, physioEntfernen, regeln, schwellen, punktestand, aktivitaeten as aktivitaetenLaden, ruhetagPunkte } from '../lib/xp.js';
   import { tagesplan, eintragText } from '../lib/plan.js';
   import { gehe } from '../lib/nav.js';
   import { abhaken, zuruecknehmen } from '../lib/training.js';
@@ -54,6 +54,14 @@
   $: info = d ? levelInfo(d.stand.verdient, d.liste) : null;
   $: tagLog = d ? d.log.slice().sort((a, b) => b.zeit - a.zeit) : [];
   $: ruheEingetragen = d ? d.log.some((e) => e.ref === `ruhetag:${datum}`) : false;
+  $: physioEingetragen = d ? d.log.some((e) => e.ref === `physio:${datum}`) : false;
+
+  async function physio() {
+    if (await physioEintragen(datum, d.r)) zeigeToast(`Physiotherapie eingetragen · +${d.r.physioXp} XP`, async () => {
+      await physioEntfernen(datum);
+      toast.set(null);
+    });
+  }
   $: erledigtAnzahl = d ? d.tp.eintraege.filter((e) => e.erledigt).length : 0;
 
   let andere = '';
@@ -144,6 +152,10 @@
       {#each d.tp.termine as t (t.id)}
         <div class="zeile">
           <span class="zeile-text">{t.zeit ? `${t.zeit} · ` : ''}{t.titel}{#if t.notiz}<br /><span class="muted">{t.notiz}</span>{/if}</span>
+          {#if t.art === 'physio' && !zukunft}
+            {#if physioEingetragen}<span class="muted">✓ war da</span>
+            {:else}<button class="sek klein" on:click={physio}>Ich war da (+{d.r.physioXp} XP)</button>{/if}
+          {/if}
         </div>
       {/each}
     </div>
@@ -200,6 +212,11 @@
   {#if !zukunft}
     <h2 class="spalte-oben">Aktivitäten</h2>
     <div class="card">
+      <div class="zeile">
+        <span class="zeile-text">Physiotherapie <span class="muted">+{d.r.physioXp} XP</span></span>
+        {#if physioEingetragen}<span class="muted">✓ eingetragen</span>
+        {:else}<button class="sek" on:click={physio}>Eintragen</button>{/if}
+      </div>
       {#each d.aktivitaeten as a}
         <div class="zeile">
           <span class="zeile-text">{a.name} <span class="muted">+{a.xp} XP</span></span>
@@ -235,7 +252,7 @@
     <h2>Eingetragen</h2>
     <div class="card">
       {#each tagLog as e (e.id)}
-        <SwipeRow aktionen={e.ref ? [] : [{ label: 'Entfernen', art: 'loeschen', aktion: () => rueckgaengig(e) }]}>
+        <SwipeRow aktionen={!e.ref || e.ref.startsWith('physio:') ? [{ label: 'Entfernen', art: 'loeschen', aktion: () => rueckgaengig(e) }] : []}>
           <div class="zeile">
             <span class="zeile-text">{e.grund} <span class="muted">+{e.punkte}</span></span>
           </div>

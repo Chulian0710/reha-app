@@ -248,6 +248,7 @@
       aktivitaetXp: xpZahl(r.aktivitaetXp),
       bestwertXp: xpZahl(r.bestwertXp),
       zielXp: xpZahl(r.zielXp),
+      physioXp: xpZahl(r.physioXp),
       bestwertProWoche: !!r.bestwertProWoche,
       ruhetagModus: r.ruhetagModus === 'fest' ? 'fest' : 'letzte',
       ruhetagXp: xpZahl(r.ruhetagXp),
@@ -519,6 +520,9 @@
 
       <label for="rbw">Neuer Bestwert<span class="muted">schwerster Satz einer Übung</span></label>
       <input id="rbw" inputmode="numeric" bind:value={r.bestwertXp} />
+
+      <label for="rph">Physiotherapie besucht<span class="muted">höchstens einmal pro Tag</span></label>
+      <input id="rph" inputmode="numeric" bind:value={r.physioXp} />
 
       <label for="rzi">Ziel erreicht</label>
       <input id="rzi" inputmode="numeric" bind:value={r.zielXp} />
