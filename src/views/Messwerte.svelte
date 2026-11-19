@@ -9,6 +9,14 @@
   import Sheet from '../lib/Sheet.svelte';
   import SwipeRow from '../lib/SwipeRow.svelte';
   import { loeschenMitUndo } from '../lib/toast.js';
+  import { regeln, xpVergeben } from '../lib/xp.js';
+
+  // XP für eine Messung, höchstens einmal pro Tag (Standard 0, im Betreuer-Bereich einstellbar)
+  async function messungXp(datum) {
+    const r = await regeln();
+    if (r.messungXp > 0 && (await xpVergeben('Messung', r.messungXp, `messung:${datum}`, datum))) return ` +${r.messungXp} XP`;
+    return '';
+  }
 
   // Kraft kommt direkt aus dem Training (siehe Fortschritt). Hier nur Umfang und weitere Werte.
   const weitereTypen = {
@@ -62,7 +70,7 @@
     await db.werte.bulkAdd(neu);
     eingabe = {};
     const ziele = await zielePruefen(mDatum);
-    hinweis = `${neu.length} ${neu.length === 1 ? 'Wert' : 'Werte'} gespeichert.` + (ziele.length ? ` Ziel erreicht: ${ziele.join(', ')}!` : '');
+    hinweis = `${neu.length} ${neu.length === 1 ? 'Wert' : 'Werte'} gespeichert.` + (await messungXp(mDatum)) + (ziele.length ? ` Ziel erreicht: ${ziele.join(', ')}!` : '');
   }
 
   // --- Weitere: einzelne Messreihen ---
@@ -87,7 +95,7 @@
     wert = '';
     notiz = '';
     const ziele = await zielePruefen(datum);
-    hinweis = 'Gespeichert.' + (ziele.length ? ` Ziel erreicht: ${ziele.join(', ')}!` : '');
+    hinweis = 'Gespeichert.' + (await messungXp(datum)) + (ziele.length ? ` Ziel erreicht: ${ziele.join(', ')}!` : '');
   }
 
   // --- Verlauf der gewählten Reihe ---

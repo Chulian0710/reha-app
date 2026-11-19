@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import { db, getEinstellung, setEinstellung, neueUid } from './db.js';
-import { regeln, schwellen } from './xp.js';
+import { regeln, schwellen, aktivitaeten } from './xp.js';
 import { textHerunterladen } from './datei.js';
 import { verschluesseln, entschluesseln } from './krypto.js';
 
@@ -60,7 +60,8 @@ export async function packErzeugen(passwort) {
     briefe: ohneId(await db.briefe.toArray()),
     abzeichen: ohneId(await db.abzeichen.toArray()),
     levelSchwellen: await schwellen(),
-    xpRegeln: await regeln()
+    xpRegeln: await regeln(),
+    aktivitaeten: await aktivitaeten()
   });
   return JSON.stringify({ format: PACK_FORMAT, version: 2, verschluesselt: true, ...(await verschluesseln(inhalt, passwort)) });
 }
@@ -106,6 +107,9 @@ export async function packImportieren(text, passwort = '') {
     }
     if (p.xpRegeln && typeof p.xpRegeln === 'object') {
       await db.einstellungen.put({ key: 'xpRegeln', value: p.xpRegeln });
+    }
+    if (Array.isArray(p.aktivitaeten)) {
+      await db.einstellungen.put({ key: 'aktivitaeten', value: p.aktivitaeten.filter((a) => a && a.name).map((a) => ({ name: String(a.name), xp: Number(a.xp) || 0 })) });
     }
   });
 }
