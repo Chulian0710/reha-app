@@ -19,6 +19,7 @@ export const TITEL = {
   uebungen: 'Übungen',
   pdfimport: 'PDF-Import',
   tagebuch: 'Tagebuch',
+  briefe: 'Briefe',
   shop: 'Shop',
   daten: 'Daten',
   betreuer: 'Betreuer'
