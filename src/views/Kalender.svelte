@@ -58,7 +58,8 @@
       werte: werte.map((w, i) => ({ ...w, reihe: reihen[i] })),
       tagebuch,
       xp: log.reduce((s, e) => s + e.punkte, 0),
-      ruheEingetragen: log.some((e) => e.ref === `ruhetag:${ds}`)
+      ruheEingetragen: log.some((e) => e.ref === `ruhetag:${ds}`),
+      physio: log.some((e) => e.ref === `physio:${ds}`)
     };
   }
 
@@ -87,12 +88,14 @@
   let tTitel = '';
   let tZeit = '';
   let tNotiz = '';
+  let tPhysio = false; // Physio-Termine kann man am Tag selbst abhaken (XP, Abzeichen)
   async function terminSpeichern() {
     if (!tTitel.trim()) return;
-    await db.termine.add({ datum: auswahl, zeit: tZeit || null, titel: tTitel.trim(), notiz: tNotiz.trim() || null });
+    await db.termine.add({ datum: auswahl, zeit: tZeit || null, titel: tTitel.trim(), notiz: tNotiz.trim() || null, art: tPhysio ? 'physio' : null });
     tTitel = '';
     tZeit = '';
     tNotiz = '';
+    tPhysio = false;
     zeigeTermin = false;
   }
   async function terminLoeschen(t) {
@@ -232,11 +235,15 @@
       {#each $tag.tp.termine as t (t.id)}
         <SwipeRow aktionen={[{ label: 'Löschen', art: 'loeschen', aktion: () => terminLoeschen(t) }]}>
           <div class="zeile">
-            <span class="zeile-text"><strong>{t.zeit ? `${t.zeit} · ` : ''}{t.titel}</strong>{#if t.notiz}<br /><span class="muted">{t.notiz}</span>{/if}</span>
+            <span class="zeile-text"><strong>{t.zeit ? `${t.zeit} · ` : ''}{t.titel}</strong>{#if t.art === 'physio'}<span class="marke neu">Physio{$tag.physio ? ' ✓' : ''}</span>{/if}{#if t.notiz}<br /><span class="muted">{t.notiz}</span>{/if}</span>
           </div>
         </SwipeRow>
       {/each}
     </div>
+  {/if}
+
+  {#if $tag.physio && !$tag.tp.termine.some((t) => t.art === 'physio')}
+    <p class="hinweis">Physiotherapie besucht ✓</p>
   {/if}
 
   <div class="card">
@@ -302,7 +309,13 @@
 <Sheet offen={zeigeTermin} titel="Termin" onclose={() => (zeigeTermin = false)}>
   <p class="muted" style="margin: 10px 0 0">{anzeige(auswahl)}</p>
   <label for="ttitel">Was? (z. B. „Physio“, „Arzt“)</label>
-  <input id="ttitel" bind:value={tTitel} />
+  <input id="ttitel" bind:value={tTitel} on:input={() => /physio/i.test(tTitel) && (tPhysio = true)} />
+  <span class="feldname">Art</span>
+  <div class="chips" role="group" aria-label="Art des Termins">
+    <button class="chip" class:an={tPhysio} aria-pressed={tPhysio} on:click={() => (tPhysio = true)}>Physiotherapie</button>
+    <button class="chip" class:an={!tPhysio} aria-pressed={!tPhysio} on:click={() => (tPhysio = false)}>Anderer Termin</button>
+  </div>
+  {#if tPhysio}<p class="muted" style="margin: 6px 0 0">Am Tag selbst kannst du den Besuch auf „Heute“ abhaken und bekommst XP dafür.</p>{/if}
   <label for="tzeit">Uhrzeit (optional)</label>
   <input id="tzeit" type="time" bind:value={tZeit} />
   <label for="tnotiz">Notiz (optional)</label>

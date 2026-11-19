@@ -7,6 +7,7 @@ export const STANDARD_REGELN = {
   aktivitaetXp: 10, // „Etwas anderes“ (eigene Aktivität); die festen Aktivitäten haben je einen eigenen Wert
   bestwertXp: 30, // neuer persönlicher Bestwert (Kraft)
   zielXp: 50, // Ziel erreicht
+  physioXp: 25, // Physiotherapie besucht, höchstens einmal pro Tag (ref 'physio:<datum>')
   bestwertProWoche: true, // höchstens ein Bestwert-Bonus pro Übung, Seite und Woche
   ruhetagModus: 'letzte', // 'letzte' = so viel wie die letzte Trainingseinheit, 'fest' = ruhetagXp
   ruhetagXp: 7,
@@ -125,4 +126,13 @@ export async function punktestand() {
   const gesammelt = gelLog.reduce((s, g) => s + g.gels, 0);
   const ausgegeben = einl.reduce((s, e) => s + e.kosten, 0);
   return { verdient, gels: gesammelt - ausgegeben, gelsGesammelt: gesammelt, gelsAusgegeben: ausgegeben };
+}
+
+// Physio-Besuch eintragen (Aktivität auf „Heute“ oder Physio-Termin abhaken). Pro Tag nur einmal.
+export async function physioEintragen(datum, r) {
+  return xpVergeben('Physiotherapie', r.physioXp, `physio:${datum}`, datum);
+}
+
+export async function physioEntfernen(datum) {
+  await xpEntfernen(`physio:${datum}`);
 }
