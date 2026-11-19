@@ -4,10 +4,12 @@
   import { db, heute } from '../lib/db.js';
   import { iso, parse, kurz, wochentag, TAGE } from '../lib/datum.js';
   import { levelInfo, schwellen, punktestand } from '../lib/xp.js';
-  import { statistik, erreicht as abzErreicht, bedingungText } from '../lib/abzeichen.js';
+  import { statistik, erreicht as abzErreicht, bedingungText, fortschrittText } from '../lib/abzeichen.js';
   import { zieleMitStand, zielePruefen, umfangReihen, UMFANG_STELLEN, zahlText } from '../lib/ziele.js';
   import { gehe } from '../lib/nav.js';
+  import { gelesene, alsGelesen } from '../lib/briefe.js';
   import LineChart from '../lib/LineChart.svelte';
+  import Medaille from '../lib/Medaille.svelte';
 
   const h = heute();
   const LINKS = '#00897b';
@@ -33,6 +35,8 @@
       werte,
       ziele: await zieleMitStand(),
       abzeichen: await db.abzeichen.toArray(),
+      briefe: (await db.briefe.toArray()).sort((a, b) => a.level - b.level),
+      gelesen: await gelesene(),
       stat: await statistik()
     };
   });
@@ -159,10 +163,10 @@
   // --- Ziele & Abzeichen ---
   $: zieleOffen = d ? d.ziele.filter((z) => !z.erreicht) : [];
   $: zieleErreicht = d ? d.ziele.filter((z) => z.erreicht) : [];
-  function abzFortschritt(a, stat) {
-    const ist = Math.min(stat[a.typ] ?? 0, a.anzahl);
-    return a.typ === 'level' ? `Level ${stat.level} von ${a.anzahl}` : `${ist} von ${a.anzahl}`;
-  }
+  // Antippen einer erreichten Medaille dreht sie einmal
+  let dreh = {};
+  const drehen = (a) => (dreh = { ...dreh, [a.id]: (dreh[a.id] || 0) + 1 });
+
   const neu = (ds) => {
     const dt = parse(h);
     dt.setDate(dt.getDate() - 7);
@@ -353,14 +357,33 @@
     <div class="abzeichen">
       {#each d.abzeichen as a (a.id)}
         <div class="abz" class:offen={abzErreicht(a, d.stat)}>
-          <span class="abz-kreis" aria-hidden="true">{abzErreicht(a, d.stat) ? '★' : '○'}</span>
+          <button class="abz-knopf" disabled={!abzErreicht(a, d.stat)} aria-label="Medaille {a.name} drehen" on:click={() => drehen(a)}>
+            {#key dreh[a.id]}<Medaille groesse={54} erreicht={abzErreicht(a, d.stat)} glanz animation={dreh[a.id] ? 'flip' : ''} />{/key}
+          </button>
           <span>{a.name}</span>
-          <span class="muted" style="font-size: 0.75rem">{abzErreicht(a, d.stat) ? 'erreicht' : `${bedingungText(a)} · ${abzFortschritt(a, d.stat)}`}</span>
+          <span class="muted" style="font-size: 0.75rem">{abzErreicht(a, d.stat) ? 'erreicht' : `${bedingungText(a)} · ${fortschrittText(a, d.stat)}`}{#if a.gels}<br />{a.gels} Gels{/if}</span>
         </div>
       {/each}
     </div>
     {#if !d.abzeichen.length}<p class="muted" style="margin: 0">Noch keine Abzeichen angelegt.</p>{/if}
   </div>
+
+  <!-- Briefe -->
+  {#if d.briefe.length}
+    <h2>Briefe</h2>
+    <div class="card">
+      {#each d.briefe as b (b.id)}
+        {#if d.level.level >= b.level}
+          <details class="brief" on:toggle={(ev) => ev.currentTarget.open && alsGelesen(b.uid)}>
+            <summary><strong>{b.titel || 'Brief'}</strong> <span class="muted">· Level {b.level}</span>{#if !d.gelesen.has(b.uid)}<span class="marke neu">neu</span>{/if}</summary>
+            <p style="white-space: pre-line">{b.text}</p>
+          </details>
+        {:else}
+          <div class="zeile"><span class="zeile-text">✉ Verschlossener Brief</span><span class="muted">öffnet bei Level {b.level}</span></div>
+        {/if}
+      {/each}
+    </div>
+  {/if}
   </div>
   </div>
 {/if}

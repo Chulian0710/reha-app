@@ -11,7 +11,9 @@ export const STANDARD_REGELN = {
   ruhetagModus: 'letzte', // 'letzte' = so viel wie die letzte Trainingseinheit, 'fest' = ruhetagXp
   ruhetagXp: 7,
   messungXp: 0, // höchstens einmal pro Tag
-  tagebuchXp: 0 // höchstens einmal pro Tag
+  tagebuchXp: 0, // höchstens einmal pro Tag
+  gelsProLevel: 10, // Gels je Level-Aufstieg, wenn für das Level nichts eigenes eingetragen ist (auch nach der letzten Stufe)
+  gelsProAbzeichen: 5 // Vorschlag für neue Abzeichen (jedes Abzeichen hat seinen eigenen Wert)
 };
 
 // Aktivitäten auf der ersten Seite, im Betreuer-Bereich änderbar (Einstellung 'aktivitaeten')
@@ -46,6 +48,18 @@ export async function schwellen() {
   return Array.isArray(s) && s.length ? s : STANDARD_SCHWELLEN;
 }
 
+// Gels je Level (Einstellung 'levelGels', Index 0 = Level 1, das es geschenkt gibt).
+// Fehlt ein Wert (z. B. nach der letzten Stufe), gilt gelsProLevel aus den Regeln.
+export async function levelGels() {
+  const g = await getEinstellung('levelGels');
+  return Array.isArray(g) ? g : [];
+}
+
+export function gelsFuerLevel(liste, level, r) {
+  const v = liste[level - 1];
+  return v === undefined || v === null || v === '' ? Number(r.gelsProLevel) || 0 : Number(v) || 0;
+}
+
 // XP-Wert, ab dem ein Level beginnt. Über die Liste hinaus geht die Kurve offen weiter.
 export function schwelleFuer(liste, level) {
   if (level <= liste.length) return liste[level - 1];
@@ -69,10 +83,15 @@ export function levelInfo(xp, liste) {
 // Vergibt XP. Mit ref wird dieselbe Aktion nur einmal gezählt. Gibt false zurück, wenn schon vergeben.
 export async function xpVergeben(grund, punkte, ref = null, datum = heute()) {
   if (ref && (await db.xpLog.where('ref').equals(ref).count())) return false;
+  await xpEintragen(grund, punkte, datum, ref);
+  return true;
+}
+
+// Trägt XP ein und gibt die id des Eintrags zurück.
+export async function xpEintragen(grund, punkte, datum = heute(), ref = null) {
   const eintrag = { datum, grund, punkte, zeit: Date.now() };
   if (ref) eintrag.ref = ref;
-  await db.xpLog.add(eintrag);
-  return true;
+  return db.xpLog.add(eintrag);
 }
 
 export async function xpEntfernen(ref) {
@@ -96,11 +115,14 @@ export async function letzteTrainingsXp(vorDatum) {
   return frueher.filter((e) => e.datum === letzter).reduce((s, e) => s + e.punkte, 0);
 }
 
-// Verdiente XP (bestimmen das Level) und verfügbare XP (minus eingelöste Belohnungen)
+// Verdiente XP (bestimmen Level, Abzeichen und Briefe) und Gels (zum Einlösen im Shop).
+// Gels gibt es für Level-Aufstiege, Abzeichen und als Geschenk (siehe gels.js), nicht direkt für XP.
 export async function punktestand() {
   const log = await db.xpLog.toArray();
+  const gelLog = await db.gelLog.toArray();
   const einl = await db.einloesungen.toArray();
   const verdient = log.reduce((s, e) => s + e.punkte, 0);
+  const gesammelt = gelLog.reduce((s, g) => s + g.gels, 0);
   const ausgegeben = einl.reduce((s, e) => s + e.kosten, 0);
-  return { verdient, ausgegeben, verfuegbar: verdient - ausgegeben };
+  return { verdient, gels: gesammelt - ausgegeben, gelsGesammelt: gesammelt, gelsAusgegeben: ausgegeben };
 }

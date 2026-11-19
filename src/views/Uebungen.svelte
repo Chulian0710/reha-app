@@ -37,11 +37,12 @@
     const id = u.istGespeichert
       ? u.id
       : await db.uebungen.add({ name: u.name, kategorie: u.kategorie, bereich: u.bereich || '', quelle: 'bibliothek' });
-    // Vorgabe aus dem Physio-Plan übernehmen, sonst 3 × 10
+    // Vorgabe aus dem Physio-Plan übernehmen, sonst 3 × 10 (Ausdauer: ohne Sätze)
     const sxr = u.vorgabe ? sxrLesen(u.vorgabe) : null;
+    const ausdauer = u.kategorie === 'ausdauer';
     const vorgabe = {
-      saetze: u.vorgabe ? (sxr ? sxr.saetze : null) : 3,
-      wdh: u.vorgabe ? (sxr ? sxr.wdh : null) : 10,
+      saetze: u.vorgabe ? (sxr ? sxr.saetze : null) : ausdauer ? null : 3,
+      wdh: u.vorgabe ? (sxr ? sxr.wdh : null) : ausdauer ? null : 10,
       vorgabe: u.vorgabe || null,
       notiz: u.notiz || null,
       gewicht: null,
@@ -76,7 +77,7 @@
     await waehlen({ ...u, id, istGespeichert: true });
   }
 
-  const filterListe = [['alle', 'Alle'], ['kraft', 'Kraft'], ['mobility', 'Mobility'], ['reha', 'Reha'], ['physio', 'Physio'], ['eigene', 'Eigene']];
+  const filterListe = [['alle', 'Alle'], ['kraft', 'Kraft'], ['ausdauer', 'Ausdauer'], ['mobility', 'Mobility'], ['reha', 'Reha'], ['physio', 'Physio'], ['eigene', 'Eigene']];
 </script>
 
 <h1>Übung hinzufügen</h1>

@@ -2,13 +2,14 @@
   import { liveQuery } from 'dexie';
   import { db } from '../lib/db.js';
   import { heute, anzeige, iso, parse } from '../lib/datum.js';
-  import { levelInfo, xpVergeben, regeln, schwellen, punktestand, aktivitaeten as aktivitaetenLaden, ruhetagPunkte } from '../lib/xp.js';
+  import { levelInfo, levelGels, gelsFuerLevel, xpVergeben, xpEintragen, regeln, schwellen, punktestand, aktivitaeten as aktivitaetenLaden, ruhetagPunkte } from '../lib/xp.js';
   import { tagesplan, eintragText } from '../lib/plan.js';
   import { gehe } from '../lib/nav.js';
   import { abhaken, zuruecknehmen } from '../lib/training.js';
   import TrainingPanel from '../lib/TrainingPanel.svelte';
   import SwipeRow from '../lib/SwipeRow.svelte';
   import { loeschenMitUndo, zeigeToast, toast } from '../lib/toast.js';
+  import Gel from '../lib/Gel.svelte';
 
   export let params = {};
 
@@ -42,7 +43,8 @@
       let ruheXp = null;
       if (tp.plan && tp.ruhetag) ruheXp = await ruhetagPunkte(ds, r);
       const aktivitaeten = await aktivitaetenLaden();
-      return { ds, stand, liste, r, tp, log, tagebuch, ruheXp, aktivitaeten };
+      const lg = await levelGels();
+      return { ds, stand, liste, r, tp, log, tagebuch, ruheXp, aktivitaeten, lg };
     });
   }
   $: daten = laden(datum);
@@ -68,7 +70,7 @@
   async function aktivitaet(name, punkte) {
     if (!name.trim()) return;
     const grund = name.trim();
-    const id = await db.xpLog.add({ datum, grund, punkte, zeit: Date.now() });
+    const id = await xpEintragen(grund, punkte, datum);
     andere = '';
     zeigeToast(`„${grund}“ eingetragen · +${punkte} XP`, async () => {
       await db.xpLog.delete(id);
@@ -129,7 +131,11 @@
     <div class="bar" style="margin-top: 10px" role="img" aria-label="Fortschritt bis zum nächsten Level">
       <div style="width: {Math.round(info.fortschritt * 100)}%"></div>
     </div>
-    <p class="muted">Noch {info.naechster - d.stand.verdient} XP bis Level {info.level + 1} · {d.stand.verfuegbar} XP zum Einlösen</p>
+    <p class="muted" style="margin-bottom: 0">Noch {info.naechster - d.stand.verdient} XP bis Level {info.level + 1}{gelsFuerLevel(d.lg, info.level + 1, d.r) ? ` · dann +${gelsFuerLevel(d.lg, info.level + 1, d.r)} Gels` : ''}</p>
+    <div class="heute-gels">
+      <span><Gel groesse={22} /><strong>{d.stand.gels}</strong> {d.stand.gels === 1 ? 'Gel' : 'Gels'}</span>
+      <button class="link" on:click={() => gehe('shop')}>Zum Shop</button>
+    </div>
   </div>
 
   {#if d.tp.termine.length}

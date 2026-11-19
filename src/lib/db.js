@@ -21,7 +21,7 @@ db.version(2).stores({
   // Punktelog. ref verhindert doppelte Vergabe (z. B. 'uebung:2026-11-15:4', 'ruhetag:2026-11-15')
   xpLog: '++id, datum, grund, ref',
   einstellungen: 'key',
-  // gespeicherte Übungen: kategorie 'kraft' | 'mobility' | 'reha'; quelle 'bibliothek' | 'eigen'
+  // gespeicherte Übungen: kategorie 'kraft' | 'ausdauer' | 'mobility' | 'reha'; quelle 'bibliothek' | 'eigen'
   uebungen: '++id, name, kategorie',
   // Trainingspläne mit Zeitraum, optional angehängte Datei (als Data-URL)
   plaene: '++id, start',
@@ -57,7 +57,26 @@ db.version(5).stores({
   ziele: '++id, erreicht'
 });
 
+// Version 6: Gels (Belohnungswährung) und Wünsche.
+// (gelBonus wurde in Version 7 durch gelLog ersetzt)
+// Belohnungen und Einlösungen kosten Gels. einloesungen.erhalten: Datum, an dem der Betreuer die Belohnung übergeben hat.
+// wuensche: name, notiz, datum, status 'offen' | 'abgelehnt', antwort
+db.version(6).stores({
+  gelBonus: '++id, datum',
+  wuensche: '++id, status'
+});
+
+// Version 7: Gels haben nichts mehr mit XP zu tun. Alle Gel-Gutschriften liegen in gelLog:
+// { datum, gels, grund, art 'level' | 'abzeichen' | 'geschenk', ref } – ref ('level:3', 'abzeichen:<uid>') verhindert doppelte Vergabe.
+db.version(7)
+  .stores({ gelLog: '++id, datum, ref', gelBonus: null })
+  .upgrade(async (tx) => {
+    const alt = await tx.table('gelBonus').toArray();
+    if (alt.length) await tx.table('gelLog').bulkAdd(alt.map(({ id, ...g }) => ({ ...g, art: 'geschenk' })));
+  });
+
 export const TABELLEN = [
+  'gelLog', 'wuensche',
   'saetze', 'termine', 'ziele',
   'reihen', 'werte', 'tagebuch', 'xpLog', 'einstellungen',
   'uebungen', 'plaene', 'planEintraege', 'erledigt',

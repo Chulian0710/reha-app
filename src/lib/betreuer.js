@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import { db, getEinstellung, setEinstellung, neueUid } from './db.js';
-import { regeln, schwellen, aktivitaeten } from './xp.js';
+import { regeln, schwellen, aktivitaeten, levelGels } from './xp.js';
 import { textHerunterladen } from './datei.js';
 import { verschluesseln, entschluesseln } from './krypto.js';
 
@@ -60,6 +60,7 @@ export async function packErzeugen(passwort) {
     briefe: ohneId(await db.briefe.toArray()),
     abzeichen: ohneId(await db.abzeichen.toArray()),
     levelSchwellen: await schwellen(),
+    levelGels: await levelGels(),
     xpRegeln: await regeln(),
     aktivitaeten: await aktivitaeten()
   });
@@ -82,7 +83,7 @@ export function packPruefen(text) {
   return { verschluesselt: !!p.verschluesselt };
 }
 
-// Ersetzt Belohnungen, Briefe, Abzeichen, Level und XP-Regeln. Fortschritt (XP, Einlösungen) bleibt.
+// Ersetzt Belohnungen, Briefe, Abzeichen, Level (mit Gels je Level) und XP-Regeln. Fortschritt (XP, Gels, Einlösungen) bleibt.
 export async function packImportieren(text, passwort = '') {
   packPruefen(text);
   let p = JSON.parse(text);
@@ -104,6 +105,9 @@ export async function packImportieren(text, passwort = '') {
     }
     if (Array.isArray(p.levelSchwellen) && p.levelSchwellen.length) {
       await db.einstellungen.put({ key: 'levelSchwellen', value: p.levelSchwellen.map(Number).sort((a, b) => a - b) });
+    }
+    if (Array.isArray(p.levelGels)) {
+      await db.einstellungen.put({ key: 'levelGels', value: p.levelGels.map((g) => Math.max(0, Math.round(Number(g) || 0))) });
     }
     if (p.xpRegeln && typeof p.xpRegeln === 'object') {
       await db.einstellungen.put({ key: 'xpRegeln', value: p.xpRegeln });

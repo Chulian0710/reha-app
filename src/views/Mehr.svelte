@@ -1,11 +1,21 @@
 <script>
+  import { liveQuery } from 'dexie';
+  import { db } from '../lib/db.js';
+  import { punktestand } from '../lib/xp.js';
   import { gehe } from '../lib/nav.js';
 
-  const eintraege = [
+  const info = liveQuery(async () => ({
+    gels: (await punktestand()).gels,
+    wuensche: await db.wuensche.where('status').equals('offen').count()
+  }));
+
+  $: gels = $info?.gels ?? 0;
+  $: offen = $info?.wuensche ?? 0;
+  $: eintraege = [
     ['tagebuch', 'Tagebuch', 'Alle Einträge'],
-    ['belohnungen', 'Belohnungen', 'XP einlösen, Abzeichen, Briefe'],
+    ['shop', 'Shop', `${gels} ${gels === 1 ? 'Gel' : 'Gels'} · Belohnungen einlösen und wünschen`],
     ['daten', 'Daten', 'Backup, Bericht, Pack importieren'],
-    ['betreuer', 'Betreuer-Bereich', 'Mit Passwort geschützt']
+    ['betreuer', 'Betreuer-Bereich', offen ? `Mit Passwort geschützt · ${offen} ${offen === 1 ? 'Wunsch wartet' : 'Wünsche warten'}` : 'Mit Passwort geschützt']
   ];
 </script>
 

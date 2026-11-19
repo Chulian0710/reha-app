@@ -19,7 +19,7 @@ export const TITEL = {
   uebungen: 'Übungen',
   pdfimport: 'PDF-Import',
   tagebuch: 'Tagebuch',
-  belohnungen: 'Belohnungen',
+  shop: 'Shop',
   daten: 'Daten',
   betreuer: 'Betreuer'
 };
