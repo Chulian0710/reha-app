@@ -2,7 +2,7 @@
 // Sie ist Teil der App und wird nicht online abgefragt.
 // Wie eine Übung ausgeführt wird, zeigt der Physio.
 
-export const KATEGORIEN = { kraft: 'Kraft', mobility: 'Mobility', reha: 'Reha' };
+export const KATEGORIEN = { kraft: 'Kraft', ausdauer: 'Ausdauer', mobility: 'Mobility', reha: 'Reha' };
 
 const liste = [
   // Kraft
@@ -29,6 +29,11 @@ const liste = [
   ['Trizepsdrücken', 'kraft', 'Arme'],
   ['Unterarmstütz (Plank)', 'kraft', 'Rumpf'],
   ['Seitstütz', 'kraft', 'Rumpf'],
+  // Ausdauer (ohne Sätze und Wiederholungen)
+  ['Schwimmen', 'ausdauer', 'Ganzkörper'],
+  ['Radfahren', 'ausdauer', 'Beine'],
+  ['Gehen', 'ausdauer', 'Beine'],
+  ['Joggen', 'ausdauer', 'Beine'],
   // Mobility
   ['Oberschenkel vorne dehnen', 'mobility', 'Oberschenkel vorne'],
   ['Oberschenkel hinten dehnen', 'mobility', 'Oberschenkel hinten'],

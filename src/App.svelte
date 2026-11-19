@@ -9,13 +9,14 @@
   import Messwerte from './views/Messwerte.svelte';
   import Mehr from './views/Mehr.svelte';
   import Tagebuch from './views/Tagebuch.svelte';
-  import Belohnungen from './views/Belohnungen.svelte';
+  import Shop from './views/Shop.svelte';
   import Daten from './views/Daten.svelte';
   import Betreuer from './views/Betreuer.svelte';
   import PdfImport from './views/PdfImport.svelte';
   import Ziele from './views/Ziele.svelte';
   import Fortschritt from './views/Fortschritt.svelte';
   import Anlegen from './views/Anlegen.svelte';
+  import Feier from './lib/Feier.svelte';
 
   // Icons: einfache Linien, 24er Raster
   const tabs = [
@@ -25,7 +26,7 @@
     { id: 'fortschritt', label: 'Fortschritt', icon: 'M4 19h16M6 15l4-4 3 3 6-7' },
     { id: 'mehr', label: 'Mehr', icon: 'M6 12h.01M12 12h.01M18 12h.01' }
   ];
-  const gruppe = { plan: 'anlegen', uebungen: 'anlegen', pdfimport: 'anlegen', ziele: 'anlegen', messwerte: 'anlegen', tagebuch: 'mehr', belohnungen: 'mehr', daten: 'mehr', betreuer: 'mehr' };
+  const gruppe = { plan: 'anlegen', uebungen: 'anlegen', pdfimport: 'anlegen', ziele: 'anlegen', messwerte: 'anlegen', tagebuch: 'mehr', shop: 'mehr', daten: 'mehr', betreuer: 'mehr' };
 
   $: seite = $ansicht.seite;
   $: params = $ansicht.params;
@@ -87,7 +88,7 @@
   {:else if seite === 'fortschritt'}<Fortschritt />
   {:else if seite === 'mehr'}<Mehr />
   {:else if seite === 'tagebuch'}<Tagebuch />
-  {:else if seite === 'belohnungen'}<Belohnungen />
+  {:else if seite === 'shop'}<Shop />
   {:else if seite === 'daten'}<Daten />
   {:else if seite === 'betreuer'}<Betreuer />
   {:else if seite === 'pdfimport'}<PdfImport {params} />
@@ -102,6 +103,8 @@
     </div>
   {/key}
 {/if}
+
+<Feier />
 
 <nav class="tabs" aria-label="Hauptmenü">
   <span class="tabs-marke" aria-hidden="true">Reha</span>

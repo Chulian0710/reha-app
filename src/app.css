@@ -9,6 +9,8 @@
   --line: #e3dfd6;
   --field: #86908c;
   --warn: #b3541e;
+  --gel: #e0a43a;
+  --gel-dunkel: #a8701a;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -334,3 +336,146 @@ button.toast-knopf { color: #8fe0d4; text-decoration: none; font-weight: 600; mi
 .xp-regeln input { text-align: center; }
 .akt-zeile { display: grid; grid-template-columns: minmax(0, 1fr) 64px auto auto auto; gap: 6px; align-items: center; margin-bottom: 8px; }
 .akt-zeile .akt-xp { text-align: center; padding: 10px 4px; }
+
+/* ---------- Shop und Gels ---------- */
+.gel-icon { flex-shrink: 0; vertical-align: -0.2em; }
+.gel-stand-zahl { display: flex; align-items: center; gap: 10px; font-size: 1.15rem; }
+.gel-stand-zahl strong { font-size: 2rem; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.gel-preis { display: inline-flex; align-items: center; gap: 4px; }
+.gel-bar { background: #f4ead7; margin: -2px 0 10px; }
+.gel-bar > div { background: var(--gel); }
+.shop-zeile { border-bottom: 1px solid var(--line); }
+.shop-zeile:last-child { border-bottom: none; }
+.marke { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: #f4ead7; color: var(--gel-dunkel); font-size: 0.75rem; font-weight: 600; vertical-align: 0.1em; }
+.marke.neu { background: var(--accent-soft); color: var(--accent); }
+.wunsch { padding: 12px 0 14px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
+.wunsch:last-child { border-bottom: none; padding-bottom: 0; }
+.wunsch-felder { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 0 8px; }
+.wunsch-felder label { margin-top: 10px; }
+.heute-gels { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.heute-gels span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---------- Feier: neues Level, neuer Brief ---------- */
+.feier {
+  position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(20, 32, 31, 0.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); overflow: hidden;
+}
+.feier-box {
+  position: relative; z-index: 1; width: min(400px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+  background: var(--card); border-radius: 22px; padding: 28px 22px 22px; text-align: center;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3); animation: feier-rein 0.42s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.feier-titel { font-size: 1.45rem; margin: 14px 0 6px; letter-spacing: -0.02em; }
+.feier-text { color: var(--muted); margin: 0 0 6px; line-height: 1.45; }
+.feier-abzeichen { list-style: none; margin: 12px 0 0; padding: 0; text-align: left; }
+.feier-abzeichen li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-top: 6px; border-radius: 12px; background: var(--accent-soft); font-weight: 600; animation: feier-rein 0.4s ease-out both; }
+.feier-abzeichen li:nth-child(2) { animation-delay: 0.12s; }
+.feier-abzeichen li:nth-child(3) { animation-delay: 0.24s; }
+.feier-abzeichen li span:nth-child(2) { flex: 1; min-width: 0; }
+.feier-gels-klein { color: var(--gel-dunkel); font-size: 0.85rem; white-space: nowrap; }
+.feier-gels { display: inline-flex; align-items: center; gap: 8px; margin: 14px 0 0; padding: 8px 16px; border-radius: 22px; background: #fbf3e4; color: var(--gel-dunkel); font-weight: 700; font-size: 1.1rem; animation: feier-plopp 0.6s cubic-bezier(0.2, 1.5, 0.4, 1) 0.5s both; }
+.feier-post { margin: 14px 0 0; padding: 10px 12px; border-radius: 12px; background: #fbf3e4; color: var(--gel-dunkel); font-weight: 600; animation: feier-wippen 1.6s ease-in-out 0.8s infinite; }
+.feier-knoepfe { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin-top: 18px; }
+.feier-knoepfe .link { align-self: center; min-height: 40px; }
+
+.feier-medaille { position: relative; width: 132px; height: 132px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+.feier-strahlen {
+  position: absolute; inset: -18px; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(224, 164, 58, 0.35) 0deg 10deg, transparent 10deg 30deg);
+  -webkit-mask: radial-gradient(circle, #000 40%, transparent 70%); mask: radial-gradient(circle, #000 40%, transparent 70%);
+  animation: feier-drehen 9s linear infinite, feier-auf 0.6s ease-out 0.15s both;
+}
+.feier-kreis {
+  position: relative; width: 112px; height: 112px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 35% 30%, #4a948e, var(--accent) 55%, var(--accent-dark)); color: #fff;
+  font-size: 2.9rem; font-weight: 800; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 6px #f6e3bb, 0 0 0 9px var(--gel), 0 10px 26px rgba(29, 74, 70, 0.4);
+  animation: feier-plopp 0.7s cubic-bezier(0.2, 1.5, 0.4, 1) 0.1s both;
+}
+.feier-kreis small { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; margin-bottom: 2px; }
+
+.konfetti { position: absolute; left: 50%; top: 38%; width: 0; height: 0; pointer-events: none; }
+.konfetti span {
+  position: absolute; left: 0; top: 0; width: var(--w); height: calc(var(--w) * 0.45); background: var(--c); border-radius: 2px; opacity: 0;
+  animation: feier-konfetti 2.1s cubic-bezier(0.15, 0.7, 0.35, 1) var(--d) forwards;
+}
+.konfetti span.rund { height: var(--w); border-radius: 50%; }
+
+/* Umschlag */
+button.umschlag {
+  position: relative; display: block; width: 220px; height: 144px; margin: 18px auto 4px; padding: 0; min-height: 0;
+  border: none; border-radius: 10px; background: #efe0c2; cursor: pointer; perspective: 700px;
+  box-shadow: 0 10px 24px rgba(120, 84, 30, 0.25); animation: feier-wackeln 2.4s ease-in-out 0.6s infinite;
+}
+button.umschlag:disabled { background: #efe0c2; cursor: default; }
+button.umschlag.offen { animation: none; }
+.umschlag-papier {
+  position: absolute; left: 14px; right: 14px; top: 10px; bottom: 8px; border-radius: 6px; background: #fffdf8;
+  background-image: repeating-linear-gradient(#fffdf8 0 14px, #eee6d6 14px 15px); background-position: 0 22px;
+  transition: transform 0.6s cubic-bezier(0.3, 1.2, 0.5, 1) 0.35s; z-index: 1;
+}
+.umschlag-tasche { position: absolute; inset: 0; border-radius: 10px; background: #f6e9cf; clip-path: polygon(0 0, 50% 52%, 100% 0, 100% 100%, 0 100%); z-index: 2; }
+.umschlag-klappe {
+  position: absolute; left: 0; right: 0; top: 0; height: 62%; background: #e6d1a8; clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform-origin: top center; transition: transform 0.45s ease-in, z-index 0s 0.22s; z-index: 3;
+}
+.umschlag-siegel {
+  position: absolute; left: 50%; top: 62%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; z-index: 4;
+  display: flex; align-items: center; justify-content: center; background: #c4561a; color: #fff; font-size: 1rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); transition: transform 0.25s ease-in, opacity 0.25s;
+}
+.umschlag.offen .umschlag-klappe { transform: rotateX(180deg); z-index: 0; }
+.umschlag.offen .umschlag-siegel { transform: scale(0.2); opacity: 0; }
+.umschlag.offen .umschlag-papier { transform: translateY(-62%); }
+
+.feier-brief { text-align: left; background: #fffdf8; border: 1px solid #eee6d6; border-radius: 14px; padding: 4px 18px 16px; animation: feier-rein 0.4s ease-out both; }
+.feier-brief p { white-space: pre-line; line-height: 1.55; margin: 0; }
+
+@keyframes feier-rein { from { opacity: 0; transform: translateY(24px) scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes feier-plopp { 0% { transform: scale(0); } 60% { transform: scale(1.14); } 80% { transform: scale(0.96); } 100% { transform: scale(1); } }
+@keyframes feier-auf { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes feier-drehen { to { rotate: 360deg; } }
+@keyframes feier-wippen { 0%, 100% { transform: none; } 50% { transform: translateY(-3px); } }
+@keyframes feier-wackeln { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(-4deg); } 84% { transform: rotate(4deg); } 92% { transform: rotate(-2deg); } }
+@keyframes feier-konfetti {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  35% { opacity: 1; transform: translate(calc(var(--x) * 0.8), var(--y)) rotate(calc(var(--r) * 0.4)); }
+  100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 320px)) rotate(var(--r)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .konfetti { display: none; }
+  .feier-box, .feier-kreis, .feier-strahlen, .feier-post, .feier-gels, .feier-abzeichen li, button.umschlag, .feier-brief { animation: none; }
+  .umschlag-papier, .umschlag-klappe, .umschlag-siegel { transition: none; }
+}
+
+/* ---------- Medaille (Abzeichen) ---------- */
+.medaille { display: inline-block; line-height: 0; transform-origin: 50% 0; }
+.medaille svg { display: block; overflow: visible; }
+.medaille-licht { transform: translateX(0); }
+.medaille.glanz .medaille-licht { animation: medaille-glanz 7s ease-in-out 1.5s infinite; }
+.medaille.flip { animation: medaille-flip 0.9s cubic-bezier(0.3, 1.4, 0.5, 1); }
+.medaille.flip .medaille-licht { animation: medaille-glanz-einmal 0.9s ease-out 0.35s; }
+.medaille.feier { animation: medaille-fall 0.75s cubic-bezier(0.25, 1.6, 0.45, 1) both, medaille-pendel 2.6s ease-in-out 0.75s; }
+.medaille.feier .medaille-licht { animation: medaille-glanz-einmal 0.9s ease-out 1s, medaille-glanz 5s ease-in-out 3s infinite; }
+@keyframes medaille-glanz { 0%, 82% { transform: translateX(0); } 100% { transform: translateX(190px); } }
+@keyframes medaille-glanz-einmal { from { transform: translateX(0); } to { transform: translateX(190px); } }
+@keyframes medaille-flip { from { transform: perspective(400px) rotateY(0); } to { transform: perspective(400px) rotateY(360deg); } }
+@keyframes medaille-fall { 0% { opacity: 0; transform: translateY(-140px) scale(0.6); } 100% { opacity: 1; transform: none; } }
+@keyframes medaille-pendel { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(9deg); } 35% { transform: rotate(-7deg); } 55% { transform: rotate(4deg); } 75% { transform: rotate(-2deg); } }
+button.abz-knopf { background: none; border: none; padding: 0; min-height: 0; color: inherit; border-radius: 12px; cursor: pointer; }
+button.abz-knopf:disabled { background: none; cursor: default; }
+.feier-medaille.feier-medaille-abz { width: auto; height: auto; padding-top: 4px; }
+.feier-abzeichen .medaille { flex-shrink: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .medaille, .medaille .medaille-licht { animation: none !important; }
+}
+
+/* Level-Stufen mit Gels */
+.stufen-tabelle { display: grid; grid-template-columns: 44px minmax(0, 1fr) 84px; gap: 6px 10px; align-items: center; }
+.stufen-tabelle > strong { text-align: center; }
+.stufen-tabelle input { text-align: center; }
+.stufen-tabelle .stufe-gels { border-color: var(--gel); }
+.stufe-start { text-align: center; }
+.stufe-weiter { font-size: 0.85rem; }
+.zeile.in-bearbeitung { background: var(--accent-soft); margin: 0 -16px; padding-left: 16px; padding-right: 16px; }

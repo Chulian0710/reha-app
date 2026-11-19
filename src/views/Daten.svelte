@@ -26,7 +26,7 @@
     }
   }
   async function packEinspielen(text, pw) {
-    if (!confirm('Belohnungen, Briefe, Abzeichen und Level-Stufen werden durch das Pack ersetzt. Deine XP und Einträge bleiben. Fortfahren?')) return;
+    if (!confirm('Shop-Belohnungen, Briefe, Abzeichen und Level-Stufen werden durch das Pack ersetzt. Deine XP, Gels und Einträge bleiben. Fortfahren?')) return;
     try {
       await packImportieren(text, pw);
       packText = null;
@@ -103,7 +103,7 @@
 
 <h2>Pack importieren</h2>
 <div class="card">
-  <p class="muted" style="margin-top: 0">Ein Pack enthält Belohnungen, Briefe, Abzeichen und Level-Stufen aus dem Betreuer-Bereich, z. B. von einem anderen Gerät.</p>
+  <p class="muted" style="margin-top: 0">Ein Pack enthält Shop-Belohnungen, Briefe, Abzeichen und Level-Stufen aus dem Betreuer-Bereich, z. B. von einem anderen Gerät.</p>
   <button class="sek" on:click={() => packInput.click()}>Pack-Datei wählen</button>
   <input bind:this={packInput} type="file" accept="application/json,.json" on:change={packLaden} style="display: none" />
   {#if packText}
