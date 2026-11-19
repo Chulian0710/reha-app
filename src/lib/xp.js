@@ -4,11 +4,35 @@ import { heute } from './datum.js';
 // Standardregeln. Im Betreuer-Bereich änderbar (Einstellung 'xpRegeln').
 export const STANDARD_REGELN = {
   uebungXp: 7, // pro geplanter Übung, wenn im Plan kein eigener Wert steht
-  aktivitaetXp: 10, // Kino, Malen, Pause, Ausflug …
+  aktivitaetXp: 10, // „Etwas anderes“ (eigene Aktivität); die festen Aktivitäten haben je einen eigenen Wert
   bestwertXp: 30, // neuer persönlicher Bestwert (Kraft)
   zielXp: 50, // Ziel erreicht
-  bestwertProWoche: true // höchstens ein Bestwert-Bonus pro Übung, Seite und Woche
+  bestwertProWoche: true, // höchstens ein Bestwert-Bonus pro Übung, Seite und Woche
+  ruhetagModus: 'letzte', // 'letzte' = so viel wie die letzte Trainingseinheit, 'fest' = ruhetagXp
+  ruhetagXp: 7,
+  messungXp: 0, // höchstens einmal pro Tag
+  tagebuchXp: 0 // höchstens einmal pro Tag
 };
+
+// Aktivitäten auf der ersten Seite, im Betreuer-Bereich änderbar (Einstellung 'aktivitaeten')
+export const STANDARD_AKTIVITAETEN = [
+  { name: 'Kochen', xp: 10 },
+  { name: 'Gemalt oder etwas Kreatives', xp: 10 },
+  { name: 'Mittagsschlaf oder Ausruhen', xp: 10 },
+  { name: 'Ausflug', xp: 10 },
+  { name: 'Frische Luft / Spaziergang', xp: 10 }
+];
+
+export async function aktivitaeten() {
+  const a = await getEinstellung('aktivitaeten');
+  return Array.isArray(a) ? a : STANDARD_AKTIVITAETEN;
+}
+
+// XP für einen eingetragenen Ruhetag
+export async function ruhetagPunkte(datum, r) {
+  if (r.ruhetagModus === 'fest') return r.ruhetagXp;
+  return (await letzteTrainingsXp(datum)) ?? r.uebungXp;
+}
 
 // Level 1 ab 0 XP, Level 2 ab 50 XP usw. Danach wächst der Abstand je Level um 100 XP.
 export const STANDARD_SCHWELLEN = [0, 50, 200, 450, 800];

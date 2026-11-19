@@ -326,3 +326,11 @@ button.toast-knopf { color: #8fe0d4; text-decoration: none; font-weight: 600; mi
 .ziel-block { padding: 14px 0; }
 @media (min-width: 1100px) { .spalte-oben { margin-top: 0; } }
 .messung-fuss { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+
+/* XP-Regeln im Betreuer-Bereich */
+.xp-regeln { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px 12px; align-items: center; }
+.xp-regeln label { margin: 0; color: var(--text); font-size: 0.95rem; display: flex; flex-direction: column; gap: 1px; }
+.xp-regeln label .muted { font-size: 0.78rem; }
+.xp-regeln input { text-align: center; }
+.akt-zeile { display: grid; grid-template-columns: minmax(0, 1fr) 64px auto auto auto; gap: 6px; align-items: center; margin-bottom: 8px; }
+.akt-zeile .akt-xp { text-align: center; padding: 10px 4px; }

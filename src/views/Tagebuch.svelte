@@ -4,8 +4,9 @@
   import { kurz } from '../lib/datum.js';
   import SwipeRow from '../lib/SwipeRow.svelte';
   import { loeschenMitUndo } from '../lib/toast.js';
+  import { regeln, xpVergeben } from '../lib/xp.js';
 
-  // Tagebuch gibt bewusst keine XP: Schreiben soll kein Pflichtpunkt sein.
+  // Tagebuch gibt standardmäßig keine XP (im Betreuer-Bereich einstellbar), höchstens einmal pro Tag.
   const eintraege = liveQuery(() => db.tagebuch.toArray());
   let text = '';
 
@@ -13,8 +14,11 @@
 
   async function speichern() {
     if (!text.trim()) return;
-    await db.tagebuch.add({ datum: heute(), text: text.trim(), zeit: Date.now() });
+    const datum = heute();
+    await db.tagebuch.add({ datum, text: text.trim(), zeit: Date.now() });
     text = '';
+    const r = await regeln();
+    if (r.tagebuchXp > 0) await xpVergeben('Tagebuch', r.tagebuchXp, `tagebuch:${datum}`, datum);
   }
 
   async function loeschen(e) {

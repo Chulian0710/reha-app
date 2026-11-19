@@ -2,7 +2,7 @@
   import { liveQuery } from 'dexie';
   import { db } from '../lib/db.js';
   import { heute, anzeige, iso, parse } from '../lib/datum.js';
-  import { levelInfo, xpVergeben, regeln, schwellen, letzteTrainingsXp, punktestand } from '../lib/xp.js';
+  import { levelInfo, xpVergeben, regeln, schwellen, punktestand, aktivitaeten as aktivitaetenLaden, ruhetagPunkte } from '../lib/xp.js';
   import { tagesplan, eintragText } from '../lib/plan.js';
   import { gehe } from '../lib/nav.js';
   import { abhaken, zuruecknehmen } from '../lib/training.js';
@@ -40,8 +40,9 @@
       const log = await db.xpLog.where('datum').equals(ds).toArray();
       const tagebuch = (await db.tagebuch.where('datum').equals(ds).toArray()).sort((a, b) => a.zeit - b.zeit);
       let ruheXp = null;
-      if (tp.plan && tp.ruhetag) ruheXp = (await letzteTrainingsXp(ds)) ?? r.uebungXp;
-      return { ds, stand, liste, r, tp, log, tagebuch, ruheXp };
+      if (tp.plan && tp.ruhetag) ruheXp = await ruhetagPunkte(ds, r);
+      const aktivitaeten = await aktivitaetenLaden();
+      return { ds, stand, liste, r, tp, log, tagebuch, ruheXp, aktivitaeten };
     });
   }
   $: daten = laden(datum);
@@ -53,7 +54,6 @@
   $: ruheEingetragen = d ? d.log.some((e) => e.ref === `ruhetag:${datum}`) : false;
   $: erledigtAnzahl = d ? d.tp.eintraege.filter((e) => e.erledigt).length : 0;
 
-  const aktivitaeten = ['Kochen', 'Gemalt oder etwas Kreatives', 'Mittagsschlaf oder Ausruhen', 'Ausflug', 'Frische Luft / Spaziergang'];
   let andere = '';
 
   async function umschalten(e) {
@@ -65,12 +65,12 @@
     await xpVergeben('Ruhetag', d.ruheXp, `ruhetag:${datum}`, datum);
   }
 
-  async function aktivitaet(name) {
+  async function aktivitaet(name, punkte) {
     if (!name.trim()) return;
     const grund = name.trim();
-    const id = await db.xpLog.add({ datum, grund, punkte: d.r.aktivitaetXp, zeit: Date.now() });
+    const id = await db.xpLog.add({ datum, grund, punkte, zeit: Date.now() });
     andere = '';
-    zeigeToast(`„${grund}“ eingetragen · +${d.r.aktivitaetXp} XP`, async () => {
+    zeigeToast(`„${grund}“ eingetragen · +${punkte} XP`, async () => {
       await db.xpLog.delete(id);
       toast.set(null);
     });
@@ -91,12 +91,13 @@
     ev.preventDefault();
   }
 
-  // Tagebuch gibt bewusst keine XP: Schreiben soll kein Pflichtpunkt sein.
+  // Tagebuch: XP nur, wenn im Betreuer-Bereich eingestellt (Standard 0), höchstens einmal pro Tag.
   let tagebuchText = '';
   async function tagebuchSpeichern() {
     if (!tagebuchText.trim()) return;
     await db.tagebuch.add({ datum, text: tagebuchText.trim(), zeit: Date.now() });
     tagebuchText = '';
+    if (d.r.tagebuchXp > 0) await xpVergeben('Tagebuch', d.r.tagebuchXp, `tagebuch:${datum}`, datum);
   }
   async function tagebuchLoeschen(e) {
     await loeschenMitUndo('Tagebucheintrag gelöscht', [{ tabelle: 'tagebuch', ids: [e.id] }]);
@@ -191,18 +192,18 @@
   </div>
   <div>
   {#if !zukunft}
-    <h2 class="spalte-oben">Aktivitäten (+{d.r.aktivitaetXp} XP)</h2>
+    <h2 class="spalte-oben">Aktivitäten</h2>
     <div class="card">
-      {#each aktivitaeten as a}
+      {#each d.aktivitaeten as a}
         <div class="zeile">
-          <span class="zeile-text">{a}</span>
-          <button class="sek" on:click={() => aktivitaet(a)}>Eintragen</button>
+          <span class="zeile-text">{a.name} <span class="muted">+{a.xp} XP</span></span>
+          <button class="sek" on:click={() => aktivitaet(a.name, a.xp)}>Eintragen</button>
         </div>
       {/each}
-      <label for="andere">Etwas anderes</label>
+      <label for="andere">Etwas anderes (+{d.r.aktivitaetXp} XP)</label>
       <div class="row" style="flex-wrap: nowrap">
         <input id="andere" bind:value={andere} placeholder="z. B. Freundin getroffen" />
-        <button class="sek" on:click={() => aktivitaet(andere)}>Eintragen</button>
+        <button class="sek" on:click={() => aktivitaet(andere, d.r.aktivitaetXp)}>Eintragen</button>
       </div>
     </div>
 

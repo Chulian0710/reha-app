@@ -48,16 +48,17 @@ Buttons färben sich beim Antippen kurz ein (`gedrueckt` in `src/main.js`, Style
 - **Videos:** YouTube-Link je Übung, wird in der App abgespielt (youtube-nocookie, lädt erst nach Tippen, braucht Internet).
 - **PDF-Import** (Plan → „Übungen aus PDF übernehmen“): liest Name + Link, Sets × Reps und Anmerkungen, auch Seiten ohne Sets × Reps. Läuft lokal mit pdf.js. Vor dem Übernehmen prüfen und Wochentage wählen. Testdatei: `beispiel/beispielplan.pdf`. Eingescannte PDFs (Bilder) funktionieren nicht.
 
-## XP-Regeln (Standard, im Betreuer-Bereich änderbar)
+## XP-Regeln (Standard, alles im Betreuer-Bereich änderbar)
 
 | Aktion | XP |
 |---|---|
-| Geplante Übung abgehakt | 7 (pro Planeintrag änderbar) |
-| Ruhetag laut Plan | so viel wie die letzte Trainingseinheit |
-| Aktivität | 10 |
-| Neuer Bestwert (Kraft) | 30, höchstens 1× pro Übung, Seite und Woche |
+| Übung abgehakt (Plan oder eingeplant) | 7 (pro Planeintrag änderbar) |
+| Neuer Bestwert (Kraft) | 30, höchstens 1× pro Übung und Woche (abschaltbar) |
 | Ziel erreicht | 50 |
-| Messwert, Tagebuch | 0 |
+| Aktivitäten | je Aktivität einstellbar (Standard 10), Liste im Betreuer-Bereich |
+| Eigene Aktivität („Etwas anderes“) | 10 |
+| Ruhetag | wie die letzte Trainingseinheit, oder fester Wert |
+| Messung, Tagebuch | 0, höchstens 1× pro Tag |
 
 Level: 0 · 50 · 200 · 450 · 800 XP, danach wächst der Abstand je Level um 100 XP (ohne Ende).
 Belohnungen einlösen senkt die verfügbaren XP, nicht das Level.
