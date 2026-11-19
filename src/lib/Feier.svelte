@@ -166,7 +166,7 @@
         {:else}
           <div class="feier-medaille feier-medaille-abz">
             <span class="feier-strahlen"></span>
-            <Medaille groesse={118} animation="feier" />
+            <Medaille groesse={118} animation="auftritt" />
           </div>
           <h2 id="feier-titel" class="feier-titel">{feier.abzeichen.length === 1 ? 'Neues Abzeichen!' : `${feier.abzeichen.length} neue Abzeichen!`}</h2>
         {/if}

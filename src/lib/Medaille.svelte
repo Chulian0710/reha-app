@@ -1,6 +1,7 @@
 <script>
   // Abzeichen-Medaille: Band, goldener Rand, schwarze Mitte mit dem roten IRONKIM-„M“ samt Punkt (aus public/icon.svg).
-  // erreicht = false: grau. animation: '' | 'flip' (einmal drehen) | 'feier' (herabfallen, pendeln, glänzen)
+  // erreicht = false: grau. animation: '' | 'flip' (einmal drehen) | 'auftritt' (herabfallen, pendeln, glänzen)
+  // Achtung: keine Klassennamen wie 'feier' verwenden, die schon anderswo vergeben sind (.feier ist das Vollbild-Overlay).
   export let groesse = 56;
   export let erreicht = true;
   export let animation = '';

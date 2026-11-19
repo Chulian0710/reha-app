@@ -456,8 +456,8 @@ button.umschlag.offen { animation: none; }
 .medaille.glanz .medaille-licht { animation: medaille-glanz 7s ease-in-out 1.5s infinite; }
 .medaille.flip { animation: medaille-flip 0.9s cubic-bezier(0.3, 1.4, 0.5, 1); }
 .medaille.flip .medaille-licht { animation: medaille-glanz-einmal 0.9s ease-out 0.35s; }
-.medaille.feier { animation: medaille-fall 0.75s cubic-bezier(0.25, 1.6, 0.45, 1) both, medaille-pendel 2.6s ease-in-out 0.75s; }
-.medaille.feier .medaille-licht { animation: medaille-glanz-einmal 0.9s ease-out 1s, medaille-glanz 5s ease-in-out 3s infinite; }
+.medaille.auftritt { animation: medaille-fall 0.75s cubic-bezier(0.25, 1.6, 0.45, 1) both, medaille-pendel 2.6s ease-in-out 0.75s; }
+.medaille.auftritt .medaille-licht { animation: medaille-glanz-einmal 0.9s ease-out 1s, medaille-glanz 5s ease-in-out 3s infinite; }
 @keyframes medaille-glanz { 0%, 82% { transform: translateX(0); } 100% { transform: translateX(190px); } }
 @keyframes medaille-glanz-einmal { from { transform: translateX(0); } to { transform: translateX(190px); } }
 @keyframes medaille-flip { from { transform: perspective(400px) rotateY(0); } to { transform: perspective(400px) rotateY(360deg); } }
