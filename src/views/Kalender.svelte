@@ -1,12 +1,12 @@
 <script>
   import { liveQuery } from 'dexie';
   import { db } from '../lib/db.js';
-  import { iso, heute, wochentag, anzeige, parse, TAGE } from '../lib/datum.js';
-  import { planAusListe, tagesplan, eintragText } from '../lib/plan.js';
+  import { iso, heute, wochentag, anzeige, parse, TAGE, tagKurz, plusTage } from '../lib/datum.js';
+  import { planAusListe, tagesplan, eintragText, verschieben } from '../lib/plan.js';
   import { satzText, zahl } from '../lib/training.js';
   import { istAusdauer, streckeEinheit } from '../lib/ausdauer.js';
   import { gehe } from '../lib/nav.js';
-  import { loeschenMitUndo } from '../lib/toast.js';
+  import { loeschenMitUndo, zeigeToast, toast } from '../lib/toast.js';
   import Sheet from '../lib/Sheet.svelte';
   import SwipeRow from '../lib/SwipeRow.svelte';
 
@@ -17,7 +17,7 @@
   let jahr = parse(auswahl).getFullYear();
   let monat = parse(auswahl).getMonth();
 
-  // Status je Tag: alles | teil | nichts | geplant | ruhe | ruhe-ok
+  // Status je Tag: alles | teil | nichts | geplant | ruhe | ruhe-ok | verschoben
   async function ladeMonat(j, m) {
     const tage = new Date(j, m + 1, 0).getDate();
     const von = iso(new Date(j, m, 1));
@@ -27,12 +27,19 @@
     const erledigt = await db.erledigt.where('datum').between(von, bis, true, true).toArray();
     const ruhe = new Set((await db.xpLog.where('ref').startsWith('ruhetag:').toArray()).map((r) => r.datum));
     const termine = new Set((await db.termine.where('datum').between(von, bis, true, true).toArray()).map((t) => t.datum));
+    const weg = new Set(eintraege.filter((e) => e.vonDatum).map((e) => `${e.vonDatum}:${e.vonEintragId}`));
     const status = {};
     for (let t = 1; t <= tage; t++) {
       const ds = iso(new Date(j, m, t));
       const plan = planAusListe(plaene, ds);
-      const geplant = eintraege.filter((e) => e.datum === ds || (plan && e.planId === plan.id && e.wochentag === wochentag(ds)));
+      const geplant = eintraege.filter(
+        (e) => e.datum === ds || (plan && e.planId === plan.id && e.wochentag === wochentag(ds) && !weg.has(`${ds}:${e.id}`))
+      );
       if (!plan && !geplant.length) continue;
+      if (!geplant.length && eintraege.some((e) => e.vonDatum === ds)) {
+        status[ds] = 'verschoben';
+        continue;
+      }
       if (!geplant.length) {
         status[ds] = ruhe.has(ds) ? 'ruhe-ok' : 'ruhe';
         continue;
@@ -129,6 +136,56 @@
     ]);
   }
 
+  // Übungen verschieben (einzeln oder den ganzen Tag), nur dieses eine Mal
+  let zeigeVerschieben = false;
+  let vAuswahl = new Set(); // Eintrags-IDs
+  let vZiel = null;
+  let vDatumFeld = '';
+  let vTage = []; // [{ ds, training, gesperrt }] zwei Wochen ab Montag
+  $: verschiebbar = $tag ? $tag.tp.eintraege.filter((e) => !e.erledigt) : [];
+
+  async function verschiebenOeffnen(e = null) {
+    vAuswahl = new Set(e ? [e.id] : verschiebbar.map((x) => x.id));
+    vZiel = null;
+    vDatumFeld = '';
+    const basis = auswahl > h ? auswahl : h;
+    const montag = plusTage(basis, 1 - wochentag(basis));
+    const tage = Array.from({ length: 14 }, (_, i) => plusTage(montag, i));
+    vTage = tage.map((ds) => ({ ds, training: false, gesperrt: ds < h || ds === auswahl }));
+    zeigeVerschieben = true;
+    const plaene = await Promise.all(tage.map((ds) => tagesplan(ds)));
+    vTage = vTage.map((t, i) => ({ ...t, training: plaene[i].eintraege.length > 0 }));
+  }
+  function vUmschalten(id) {
+    vAuswahl.has(id) ? vAuswahl.delete(id) : vAuswahl.add(id);
+    vAuswahl = vAuswahl;
+  }
+  function vZielWaehlen(ds) {
+    vZiel = ds;
+    vDatumFeld = '';
+  }
+  $: if (vDatumFeld) vZiel = vDatumFeld >= h && vDatumFeld !== auswahl ? vDatumFeld : null;
+  $: vAnzahl = verschiebbar.filter((e) => vAuswahl.has(e.id)).length;
+
+  async function verschiebenAusfuehren() {
+    if (!vZiel || !vAnzahl) return;
+    const von = auswahl;
+    const nach = vZiel;
+    const { anzahl, rueckgaengig } = await verschieben(verschiebbar.filter((e) => vAuswahl.has(e.id)), von, nach);
+    zeigeVerschieben = false;
+    zeigeToast(`${anzahl === 1 ? '1 Übung' : `${anzahl} Übungen`} auf ${tagKurz(nach)} verschoben`, async () => {
+      await rueckgaengig();
+      toast.set(null);
+    });
+  }
+
+  function springe(ds) {
+    waehle(ds);
+    const d = parse(ds);
+    jahr = d.getFullYear();
+    monat = d.getMonth();
+  }
+
   // Monat wechseln durch Wischen über den Kalender
   let wischStart = null;
   function wischAn(ev) {
@@ -163,6 +220,7 @@
   function waehle(ds) {
     auswahl = ds;
     zeigeTermin = false;
+    zeigeVerschieben = false;
     bearbeitId = null;
   }
 
@@ -172,8 +230,20 @@
     nichts: 'nichts erledigt',
     geplant: 'geplant',
     ruhe: 'Ruhetag',
-    'ruhe-ok': 'Ruhetag eingetragen'
+    'ruhe-ok': 'Ruhetag eingetragen',
+    verschoben: 'Übungen verschoben'
   };
+
+  // Aktionen je Übung: Verschieben geht, solange sie nicht erledigt ist. Eingeplante Übungen kann man ab heute
+  // auch ändern und löschen. Eine verschobene Planübung löscht man nicht, man schiebt sie zurück.
+  function aktionenFuer(e) {
+    if (e.erledigt) return [];
+    const schieben = { label: 'Verschieben', art: 'neutral', aktion: () => verschiebenOeffnen(e) };
+    if (!e.extra || auswahl < h) return [schieben];
+    const aendern = { label: 'Ändern', art: 'neutral', aktion: () => bearbeiten(e) };
+    if (e.vonEintragId) return [schieben, aendern];
+    return [{ label: 'Löschen', art: 'loeschen', aktion: () => extraEntfernen(e) }, schieben, aendern];
+  }
 </script>
 
 <svelte:window on:keydown={taste} />
@@ -211,6 +281,7 @@
             {:else if st[z.ds] === 'geplant'}<circle cx="6" cy="6" r="3.5" fill="none" stroke="var(--muted)" stroke-width="1.5" />
             {:else if st[z.ds] === 'ruhe-ok'}<rect x="2" y="2" width="8" height="8" rx="2" fill="var(--accent)" />
             {:else if st[z.ds] === 'ruhe'}<rect x="2.5" y="2.5" width="7" height="7" rx="2" fill="none" stroke="var(--muted)" stroke-width="1.3" />
+            {:else if st[z.ds] === 'verschoben'}<path d="M2 6h7M6.5 3.2L9.3 6 6.5 8.8" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             {/if}
           </svg>
         </button>
@@ -225,6 +296,7 @@
     <span><svg width="12" height="12" aria-hidden="true"><path d="M3 6h6" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" /></svg> nichts</span>
     <span><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="3.5" fill="none" stroke="var(--muted)" stroke-width="1.5" /></svg> geplant</span>
     <span><svg width="12" height="12" aria-hidden="true"><rect x="2" y="2" width="8" height="8" rx="2" fill="var(--accent)" /></svg> Ruhetag</span>
+    <span><svg width="12" height="12" aria-hidden="true"><path d="M2 6h7M6.5 3.2L9.3 6 6.5 8.8" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg> verschoben</span>
     <span><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="3" fill="var(--warn)" /></svg> Termin</span>
   </div>
 </div>
@@ -251,25 +323,18 @@
 
   <div class="card">
     {#if $tag.tp.eintraege.length === 0}
-      <p class="muted" style="margin: 0">{$tag.tp.ruhetag ? `Ruhetag${$tag.ruheEingetragen ? ' · eingetragen' : ''}` : $tag.tp.plan ? 'Keine Übungen.' : 'Kein Plan an diesem Tag.'}</p>
+      <p class="muted" style="margin: 0">{$tag.tp.ruhetag ? `Ruhetag${$tag.ruheEingetragen ? ' · eingetragen' : ''}` : $tag.tp.weg.length ? 'Keine Übungen mehr, alle verschoben.' : $tag.tp.plan ? 'Keine Übungen.' : 'Kein Plan an diesem Tag.'}</p>
     {:else}
       <p class="muted" style="margin: 0 0 4px">
         {$tag.tp.eintraege.filter((e) => e.erledigt).length} von {$tag.tp.eintraege.length} Übungen erledigt
       </p>
       {#each $tag.tp.eintraege as e (e.id)}
-        <SwipeRow
-          aktionen={e.extra && !e.erledigt && auswahl >= h
-            ? [
-                { label: 'Löschen', art: 'loeschen', aktion: () => extraEntfernen(e) },
-                { label: 'Ändern', art: 'neutral', aktion: () => bearbeiten(e) }
-              ]
-            : []}
-        >
+        <SwipeRow aktionen={aktionenFuer(e)}>
           <div class="zeile">
             <span class="zeile-text">
               {e.uebung?.name ?? 'Übung'}<br />
               <span class="muted">
-                {e.extra ? 'eingeplant · ' : ''}{$tag.saetze.some((s) => s.planEintragId === e.id)
+                {e.vonDatum ? `von ${tagKurz(e.vonDatum)} verschoben · ` : e.extra ? 'eingeplant · ' : ''}{$tag.saetze.some((s) => s.planEintragId === e.id)
                   ? $tag.saetze.filter((s) => s.planEintragId === e.id).map((s) => satzText(s, e.uebung)).join(' · ')
                   : eintragText(e)}
               </span>
@@ -282,6 +347,13 @@
         </SwipeRow>
       {/each}
     {/if}
+
+    {#each $tag.tp.weg as w (w.id)}
+      <button class="link zeile weg-zeile" on:click={() => springe(w.datum)}>
+        <span class="zeile-text muted">{w.uebung?.name ?? 'Übung'} · verschoben auf {tagKurz(w.datum)}</span>
+        <span class="muted" aria-hidden="true">›</span>
+      </button>
+    {/each}
 
     {#if $tag.werte.length || $tag.tagebuch.length || $tag.xp}
       <div style="border-top: 1px solid var(--line); margin-top: 8px; padding-top: 10px; line-height: 1.5">
@@ -302,6 +374,11 @@
     {/if}
     <button class="sek" style="flex: 1" on:click={() => (zeigeTermin = true)}>Termin eintragen</button>
   </div>
+  {#if verschiebbar.length}
+    <button class="sek breit" style="margin-top: 10px" on:click={() => verschiebenOeffnen()}>
+      {verschiebbar.length === 1 ? 'Übung verschieben' : 'Übungen verschieben'}
+    </button>
+  {/if}
   {#if auswahl <= h}
     <button class="link" style="margin-top: 10px" on:click={() => gehe('heute', { datum: auswahl })}>Diesen Tag öffnen (abhaken, Tagebuch)</button>
   {/if}
@@ -324,6 +401,48 @@
   <label for="tnotiz">Notiz (optional)</label>
   <input id="tnotiz" bind:value={tNotiz} />
   <div class="sheet-aktionen"><button on:click={terminSpeichern} disabled={!tTitel.trim()}>Termin speichern</button></div>
+</Sheet>
+
+<Sheet offen={zeigeVerschieben} titel="Verschieben" onclose={() => (zeigeVerschieben = false)}>
+  <p class="muted" style="margin: 10px 0 0">Nur dieses eine Mal. Der Wochenplan bleibt, wie er ist.</p>
+  {#if verschiebbar.length > 1}
+    <span class="feldname">Welche Übungen? (von {tagKurz(auswahl)})</span>
+    {#each verschiebbar as e (e.id)}
+      <label class="zeile waehlbar">
+        <input type="checkbox" checked={vAuswahl.has(e.id)} on:change={() => vUmschalten(e.id)} />
+        <span class="zeile-text">{e.uebung?.name ?? 'Übung'}<br /><span class="muted">{eintragText(e)}</span></span>
+      </label>
+    {/each}
+    <button class="link" style="margin-top: 6px" on:click={() => (vAuswahl = vAuswahl.size === verschiebbar.length ? new Set() : new Set(verschiebbar.map((x) => x.id)))}>
+      {vAuswahl.size === verschiebbar.length ? 'Keine auswählen' : 'Alle auswählen'}
+    </button>
+  {:else if verschiebbar.length === 1}
+    <p style="margin: 10px 0 0"><strong>{verschiebbar[0].uebung?.name ?? 'Übung'}</strong> <span class="muted">von {tagKurz(auswahl)}</span></p>
+  {/if}
+  <span class="feldname">Auf welchen Tag?</span>
+  <div class="wochentage" role="group" aria-label="Zieltag">
+    {#each TAGE as t}<span class="v-kopf muted">{t}</span>{/each}
+    {#each vTage as t (t.ds)}
+      <button
+        class="chip v-tag"
+        class:an={vZiel === t.ds}
+        aria-pressed={vZiel === t.ds}
+        disabled={t.gesperrt}
+        aria-label="{anzeige(t.ds)}{t.ds === auswahl ? ', Ausgangstag' : t.training ? ', schon Training' : ''}"
+        on:click={() => vZielWaehlen(t.ds)}
+      >
+        {parse(t.ds).getDate()}{#if t.training && !t.gesperrt}<span class="punkt" aria-hidden="true"></span>{/if}
+      </button>
+    {/each}
+  </div>
+  <p class="muted" style="margin: 6px 0 0">Punkt = an dem Tag steht schon Training an.</p>
+  <label for="vdatum">Anderes Datum</label>
+  <input id="vdatum" type="date" min={h} bind:value={vDatumFeld} />
+  <div class="sheet-aktionen">
+    <button on:click={verschiebenAusfuehren} disabled={!vZiel || !vAnzahl}>
+      {vAnzahl === 1 ? '1 Übung' : `${vAnzahl} Übungen`}{vZiel ? ` auf ${tagKurz(vZiel)}` : ''} verschieben
+    </button>
+  </div>
 </Sheet>
 
 <Sheet offen={bearbeitId !== null} titel="Übung ändern" onclose={() => (bearbeitId = null)}>

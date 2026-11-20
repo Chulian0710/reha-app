@@ -75,6 +75,13 @@ db.version(7)
     if (alt.length) await tx.table('gelLog').bulkAdd(alt.map(({ id, ...g }) => ({ ...g, art: 'geschenk' })));
   });
 
+// Version 8: Verschieben im Kalender.
+// Eine Planübung, die nur in einer Woche auf einen anderen Tag wandert, bekommt dort eine Kopie
+// (datum = Zieltag) mit vonDatum (ursprünglicher Tag) und vonEintragId (Planeintrag). Am ursprünglichen Tag entfällt sie dann.
+db.version(8).stores({
+  planEintraege: '++id, planId, wochentag, uebungId, datum, vonDatum'
+});
+
 export const TABELLEN = [
   'gelLog', 'wuensche',
   'saetze', 'termine', 'ziele',

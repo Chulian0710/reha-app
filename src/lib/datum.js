@@ -40,3 +40,14 @@ export function anzeige(s) {
 export function kurz(s) {
   return parse(s).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
 }
+
+// z. B. 'Do 26.11.'
+export function tagKurz(s) {
+  return `${TAGE[wochentag(s) - 1]} ${kurz(s)}`;
+}
+
+export function plusTage(s, n) {
+  const d = parse(s);
+  d.setDate(d.getDate() + n);
+  return iso(d);
+}
