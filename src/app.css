@@ -90,6 +90,8 @@ button:disabled { border-color: var(--field); background: #eceae4; color: var(--
 
 .training { padding: 4px 0 14px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
 .training:last-child { border-bottom: none; }
+.training-vorgabe { margin: 0; font-size: 1rem; }
+.training-vorgabe .feldname { margin: 0 0 2px; }
 .video { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; }
 .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .satz { display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr) 52px; gap: 8px; align-items: center; }
@@ -503,6 +505,8 @@ button.mehr-zeile { justify-content: flex-start; gap: 14px; }
 /* Zeile mit Häkchen zum Auswählen (Mehrfachauswahl) */
 label.zeile.waehlbar { justify-content: flex-start; margin: 0; font-size: 1rem; color: var(--text); cursor: pointer; }
 label.zeile.waehlbar .zeile-text { min-width: 0; }
+.zeile label.waehlbar-inhalt { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; align-self: stretch; margin: 0; font-size: 1rem; color: var(--text); cursor: pointer; }
+.zeile label.waehlbar-inhalt .zeile-text { min-width: 0; }
 
 /* Verschieben im Kalender */
 button.weg-zeile { width: 100%; text-align: left; font-weight: 400; text-decoration: none; border-radius: 0; border-top: 1px solid var(--line); }
