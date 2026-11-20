@@ -80,7 +80,8 @@
       let id;
       if (vorhanden) {
         id = vorhanden.id;
-        if (z.video) await db.uebungen.update(id, { video: z.video });
+        // eine gelöschte Übung kommt mit dem Plan zurück
+        if (z.video || vorhanden.geloescht) await db.uebungen.update(id, { ...(z.video ? { video: z.video } : {}), geloescht: false });
       } else {
         id = await db.uebungen.add({ name, kategorie: 'reha', bereich: '', quelle: 'physio', video: z.video || null });
         alle.push({ id, name });

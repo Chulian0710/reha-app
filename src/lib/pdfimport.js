@@ -29,6 +29,7 @@ export async function inBibliothek(gefunden) {
     const vorhanden = alle.find((u) => u.name.toLowerCase() === name.toLowerCase());
     if (vorhanden) {
       const fehlt = Object.fromEntries(Object.entries(extra).filter(([k, v]) => v && !vorhanden[k]));
+      if (vorhanden.geloescht) fehlt.geloescht = false;
       if (Object.keys(fehlt).length) {
         await db.uebungen.update(vorhanden.id, fehlt);
         Object.assign(vorhanden, fehlt);
