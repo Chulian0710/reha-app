@@ -37,7 +37,7 @@ Buttons färben sich beim Antippen kurz ein (`gedrueckt` in `src/main.js`, Style
 - **Physiotherapie:** auf „Heute“ als erste Aktivität eintragen oder einen Termin der Art „Physiotherapie“ mit „Ich war da“ abhaken (beides `ref` `physio:<datum>`, also einmal pro Tag). Zählt für XP und für Abzeichen vom Typ „Physio-Besuche“; „Erster Physio-Besuch“ und „10 Physio-Besuche“ werden einmalig angelegt.
 - **Kalender:** Monatsansicht mit Status je Tag, Tagesdetails; einzelne Übungen für einen Tag einplanen (zusätzlich zum Wochenplan, abhaken unter „Heute“ mit XP) und Termine eintragen (z. B. Physio, Arzt)
 - **Plan:** Pläne mit Zeitraum, Übungen je Wochentag (Sätze, Wdh., Gewicht, XP), Physio-Plan als PDF/Foto. Beim Anhängen einer PDF landen die erkannten Übungen automatisch in der Bibliothek (Filter „Physio“).
-- **Übungen:** Kategorien Kraft, Ausdauer (Schwimmen, Radfahren, Gehen, Joggen; ohne Sätze), Mobility, Reha. Suche in eigener Bibliothek (`src/lib/bibliothek.js`, nur Namen), eigene Übungen, Übungen vom Physio
+- **Übungen:** Kategorien Kraft, Ausdauer (Schwimmen in Metern; Radfahren, Gehen, Joggen, Ergometer in km), Mobility, Reha. Suche in eigener Bibliothek (`src/lib/bibliothek.js`, nur Namen), eigene Übungen, Übungen vom Physio
 - **Ziele:** mit Messwert (Gewicht aus dem Training, Messwert wie Umfang, eigener Wert wie Minuten spazieren) oder ohne Messwert (z. B. „erster Sprung“). Ziele mit Messwert haken sich automatisch ab.
 - **Fortschritt:** Kennzahlen, Trainingstage (16 Wochen), Kraftentwicklung je Übung aus den Trainingssätzen, Bestwerte, Ausgangssituation vs. letzte Messung, Ziele, Abzeichen
 - **Briefe** (Mehr): alle geöffneten Briefe, ungeöffnete zum Öffnen, Hinweis auf noch verschlossene (`src/lib/briefe.js`, gelesen = Einstellung `briefeGelesen`)
@@ -48,6 +48,7 @@ Buttons färben sich beim Antippen kurz ein (`gedrueckt` in `src/main.js`, Style
 
 ## Training, Videos, PDF-Import
 
+- **Ausdauer** (`src/lib/ausdauer.js`): statt Gewicht × Wiederholungen werden Dauer (Minuten) und Strecke (km oder m, Feld `einheit` an der Übung) erfasst, auch als Vorgabe im Plan/Kalender. Bestleistung = weiteste Strecke. Fortschritt zeigt einen eigenen Abschnitt Ausdauer; Abzeichen können Strecke an einem Tag, Strecke insgesamt oder Dauer verlangen; Ziele aus dem Training messen die weiteste Strecke an einem Tag.
 - **Training** (Heute → Übung → „Training“): Sätze mit Gewicht und Wiederholungen abhaken. Vorschlag = letztes Training. Sind alle Sätze abgehakt, ist die Übung erledigt. Schwerer als je zuvor = Bestwert.
 - **Videos:** YouTube-Link je Übung, wird in der App abgespielt (youtube-nocookie, lädt erst nach Tippen, braucht Internet).
 - **PDF-Import** (Plan → „Übungen aus PDF übernehmen“): liest Name + Link, Sets × Reps und Anmerkungen, auch Seiten ohne Sets × Reps. Läuft lokal mit pdf.js. Vor dem Übernehmen prüfen und Wochentage wählen. Testdatei: `beispiel/beispielplan.pdf`. Eingescannte PDFs (Bilder) funktionieren nicht.

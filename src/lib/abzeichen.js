@@ -12,12 +12,21 @@ export const BEDINGUNGEN = {
 };
 
 // Bei typ 'uebung': welche Übung (Feld uebung = Name, damit es auch nach einem Pack-Import passt)
-// und was zählt (Feld kriterium). anzahl ist dann Anzahl, Kilogramm oder Anzahl Bestwerte.
+// und was zählt (Feld kriterium). anzahl ist dann Anzahl, Kilogramm, Strecke, Minuten oder Anzahl Bestwerte.
+// fuer: 'kraft' = nur Übungen mit Gewicht, 'ausdauer' = nur Ausdauer, fehlt = alle.
+// Bei Ausdauer steht die Einheit der Strecke (km/m) mit am Abzeichen (Feld einheit).
 export const KRITERIEN = {
-  anzahl: { label: 'So oft gemacht', feld: 'Wie oft (Tage)' },
-  gewicht: { label: 'Gewicht erreicht', feld: 'Gewicht (kg)' },
-  bestwert: { label: 'Neuer Bestwert', feld: 'Wie viele Bestwerte' }
+  anzahl: { label: 'So oft gemacht', feld: () => 'Wie oft (Tage)' },
+  gewicht: { label: 'Gewicht erreicht', feld: () => 'Gewicht (kg)', fuer: 'kraft' },
+  strecke: { label: 'Strecke an einem Tag', feld: (e) => `Strecke (${e})`, fuer: 'ausdauer' },
+  gesamtstrecke: { label: 'Strecke insgesamt', feld: (e) => `Strecke insgesamt (${e})`, fuer: 'ausdauer' },
+  dauer: { label: 'Dauer an einem Tag', feld: () => 'Minuten', fuer: 'ausdauer' },
+  bestwert: { label: 'Neuer Bestwert', feld: () => 'Wie viele Bestwerte' }
 };
+
+export function kriterienFuer(ausdauer) {
+  return Object.entries(KRITERIEN).filter(([, k]) => !k.fuer || k.fuer === (ausdauer ? 'ausdauer' : 'kraft'));
+}
 
 export const PHYSIO_ABZEICHEN = [
   { name: 'Erster Physio-Besuch', typ: 'physio', anzahl: 1, gels: 5 },
@@ -33,14 +42,15 @@ export const STANDARD_ABZEICHEN = [
 
 const schluessel = (name) => String(name || '').trim().toLowerCase();
 
-// Je Übungsname: an wie vielen Tagen gemacht, schwerstes Gewicht, wie oft ein neuer Bestwert.
-// Ein Bestwert ist ein Tag, an dem der schwerste Satz schwerer war als alles davor (der erste Tag zählt nicht).
+// Je Übungsname: an wie vielen Tagen gemacht, schwerstes Gewicht, wie oft ein neuer Bestwert,
+// bei Ausdauer zusätzlich Strecke und Dauer (je Tag zusammengezählt; strecke/dauer = bester Tag, gesamtstrecke = Summe).
+// Ein Bestwert ist ein Tag, an dem der schwerste Satz (Ausdauer: die Strecke) höher war als alles davor (der erste Tag zählt nicht).
 async function uebungStatistik() {
   const uebungen = await db.uebungen.toArray();
   const nameVon = new Map(uebungen.map((u) => [u.id, schluessel(u.name)]));
   const uebungVonEintrag = new Map((await db.planEintraege.toArray()).map((e) => [e.id, e.uebungId]));
   const roh = {};
-  const zu = (n) => (roh[n] ||= { tage: new Set(), tagMax: {} });
+  const zu = (n) => (roh[n] ||= { tage: new Set(), tagMax: {}, tagStrecke: {}, tagDauer: {} });
 
   for (const e of await db.erledigt.toArray()) {
     const n = nameVon.get(uebungVonEintrag.get(e.planEintragId));
@@ -53,17 +63,32 @@ async function uebungStatistik() {
     const x = zu(n);
     x.tage.add(s.datum);
     if (s.gewicht !== null && s.gewicht !== undefined) x.tagMax[s.datum] = Math.max(x.tagMax[s.datum] ?? -Infinity, s.gewicht);
+    if (s.strecke !== null && s.strecke !== undefined) x.tagStrecke[s.datum] = (x.tagStrecke[s.datum] ?? 0) + s.strecke;
+    if (s.dauer !== null && s.dauer !== undefined) x.tagDauer[s.datum] = (x.tagDauer[s.datum] ?? 0) + s.dauer;
   }
 
   const st = {};
-  for (const [n, x] of Object.entries(roh)) {
+  const rekorde = (reihe) => {
     let max = null;
-    let bestwerte = 0;
-    for (const d of Object.keys(x.tagMax).sort()) {
-      if (max !== null && x.tagMax[d] > max) bestwerte++;
-      max = max === null ? x.tagMax[d] : Math.max(max, x.tagMax[d]);
+    let anzahl = 0;
+    for (const d of Object.keys(reihe).sort()) {
+      if (max !== null && reihe[d] > max) anzahl++;
+      max = max === null ? reihe[d] : Math.max(max, reihe[d]);
     }
-    st[n] = { anzahl: x.tage.size, gewicht: max ?? 0, bestwert: bestwerte };
+    return { max: max ?? 0, anzahl };
+  };
+  const rund = (v) => Math.round(v * 100) / 100;
+  for (const [n, x] of Object.entries(roh)) {
+    const kraft = rekorde(x.tagMax);
+    const weg = rekorde(x.tagStrecke);
+    st[n] = {
+      anzahl: x.tage.size,
+      gewicht: kraft.max,
+      bestwert: Object.keys(x.tagMax).length ? kraft.anzahl : weg.anzahl,
+      strecke: rund(weg.max),
+      gesamtstrecke: rund(Object.values(x.tagStrecke).reduce((a, b) => a + b, 0)),
+      dauer: rund(Math.max(0, ...Object.values(x.tagDauer)))
+    };
   }
   return st;
 }
@@ -101,6 +126,9 @@ export function bedingungText(a) {
   if (a.typ === 'uebung') {
     const k = a.kriterium || 'anzahl';
     if (k === 'gewicht') return `${a.uebung} mit ${kg(a.anzahl)} kg`;
+    if (k === 'strecke') return `${a.uebung}: ${kg(a.anzahl)} ${a.einheit || 'km'} an einem Tag`;
+    if (k === 'gesamtstrecke') return `${a.uebung}: ${kg(a.anzahl)} ${a.einheit || 'km'} insgesamt`;
+    if (k === 'dauer') return `${a.uebung}: ${kg(a.anzahl)} Minuten an einem Tag`;
     if (k === 'bestwert') return a.anzahl === 1 ? `Neuer Bestwert bei ${a.uebung}` : `${a.anzahl} Bestwerte bei ${a.uebung}`;
     return a.anzahl === 1 ? `${a.uebung} zum ersten Mal` : `${a.uebung} ${a.anzahl}× gemacht`;
   }
@@ -111,6 +139,8 @@ export function fortschrittText(a, stat) {
   const ist = abzWert(a, stat);
   if (a.typ === 'level') return `Level ${stat.level} von ${a.anzahl}`;
   if (a.typ === 'uebung' && a.kriterium === 'gewicht') return `bisher ${kg(ist)} von ${kg(a.anzahl)} kg`;
+  if (a.typ === 'uebung' && (a.kriterium === 'strecke' || a.kriterium === 'gesamtstrecke')) return `bisher ${kg(Math.min(ist, a.anzahl))} von ${kg(a.anzahl)} ${a.einheit || 'km'}`;
+  if (a.typ === 'uebung' && a.kriterium === 'dauer') return `bisher ${kg(Math.min(ist, a.anzahl))} von ${kg(a.anzahl)} min`;
   return `${Math.min(ist, a.anzahl)} von ${a.anzahl}`;
 }
 

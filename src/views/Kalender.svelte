@@ -4,6 +4,7 @@
   import { iso, heute, wochentag, anzeige, parse, TAGE } from '../lib/datum.js';
   import { planAusListe, tagesplan, eintragText } from '../lib/plan.js';
   import { satzText, zahl } from '../lib/training.js';
+  import { istAusdauer, streckeEinheit } from '../lib/ausdauer.js';
   import { gehe } from '../lib/nav.js';
   import { loeschenMitUndo } from '../lib/toast.js';
   import Sheet from '../lib/Sheet.svelte';
@@ -107,13 +108,15 @@
   let f = {};
   function bearbeiten(e) {
     bearbeitId = e.id;
-    f = { saetze: e.saetze ?? '', wdh: e.wdh ?? '', gewicht: e.gewicht ?? '', notiz: e.notiz ?? '' };
+    f = { saetze: e.saetze ?? '', wdh: e.wdh ?? '', gewicht: e.gewicht ?? '', dauer: e.dauer ?? '', strecke: e.strecke ?? '', notiz: e.notiz ?? '', uebung: e.uebung };
   }
   async function extraSpeichern() {
     await db.planEintraege.update(bearbeitId, {
       saetze: zahl(f.saetze),
       wdh: zahl(f.wdh),
       gewicht: zahl(f.gewicht),
+      dauer: zahl(f.dauer),
+      strecke: zahl(f.strecke),
       notiz: String(f.notiz).trim() || null
     });
     bearbeitId = null;
@@ -267,7 +270,7 @@
               {e.uebung?.name ?? 'Übung'}<br />
               <span class="muted">
                 {e.extra ? 'eingeplant · ' : ''}{$tag.saetze.some((s) => s.planEintragId === e.id)
-                  ? $tag.saetze.filter((s) => s.planEintragId === e.id).map(satzText).join(' · ')
+                  ? $tag.saetze.filter((s) => s.planEintragId === e.id).map((s) => satzText(s, e.uebung)).join(' · ')
                   : eintragText(e)}
               </span>
               {#if e.extra && e.notiz}<br /><span class="muted">{e.notiz}</span>{/if}
@@ -325,11 +328,18 @@
 
 <Sheet offen={bearbeitId !== null} titel="Übung ändern" onclose={() => (bearbeitId = null)}>
   {#if bearbeitId !== null}
-    <div class="row" style="flex-wrap: nowrap">
-      <div style="flex: 1; min-width: 0"><label for="ks">Sätze</label><input id="ks" inputmode="numeric" bind:value={f.saetze} /></div>
-      <div style="flex: 1; min-width: 0"><label for="kw">Wdh.</label><input id="kw" inputmode="numeric" bind:value={f.wdh} /></div>
-      <div style="flex: 1; min-width: 0"><label for="kg">kg</label><input id="kg" inputmode="decimal" bind:value={f.gewicht} /></div>
-    </div>
+    {#if istAusdauer(f.uebung)}
+      <div class="row" style="flex-wrap: nowrap">
+        <div style="flex: 1; min-width: 0"><label for="kd">Dauer (Min)</label><input id="kd" inputmode="decimal" bind:value={f.dauer} placeholder="optional" /></div>
+        <div style="flex: 1; min-width: 0"><label for="kst">Strecke ({streckeEinheit(f.uebung)})</label><input id="kst" inputmode="decimal" bind:value={f.strecke} placeholder="optional" /></div>
+      </div>
+    {:else}
+      <div class="row" style="flex-wrap: nowrap">
+        <div style="flex: 1; min-width: 0"><label for="ks">Sätze</label><input id="ks" inputmode="numeric" bind:value={f.saetze} /></div>
+        <div style="flex: 1; min-width: 0"><label for="kw">Wdh.</label><input id="kw" inputmode="numeric" bind:value={f.wdh} /></div>
+        <div style="flex: 1; min-width: 0"><label for="kg">kg</label><input id="kg" inputmode="decimal" bind:value={f.gewicht} /></div>
+      </div>
+    {/if}
     <label for="kn">Anmerkung</label>
     <input id="kn" bind:value={f.notiz} />
     <div class="sheet-aktionen"><button on:click={extraSpeichern}>Speichern</button></div>

@@ -29,11 +29,12 @@ const liste = [
   ['Trizepsdrücken', 'kraft', 'Arme'],
   ['Unterarmstütz (Plank)', 'kraft', 'Rumpf'],
   ['Seitstütz', 'kraft', 'Rumpf'],
-  // Ausdauer (ohne Sätze und Wiederholungen)
-  ['Schwimmen', 'ausdauer', 'Ganzkörper'],
-  ['Radfahren', 'ausdauer', 'Beine'],
-  ['Gehen', 'ausdauer', 'Beine'],
-  ['Joggen', 'ausdauer', 'Beine'],
+  // Ausdauer: Dauer und Strecke statt Sätzen (4. Wert = Einheit der Strecke)
+  ['Schwimmen', 'ausdauer', 'Ganzkörper', 'm'],
+  ['Radfahren', 'ausdauer', 'Beine', 'km'],
+  ['Gehen', 'ausdauer', 'Beine', 'km'],
+  ['Joggen', 'ausdauer', 'Beine', 'km'],
+  ['Ergometer', 'ausdauer', 'Beine', 'km'],
   // Mobility
   ['Oberschenkel vorne dehnen', 'mobility', 'Oberschenkel vorne'],
   ['Oberschenkel hinten dehnen', 'mobility', 'Oberschenkel hinten'],
@@ -57,10 +58,9 @@ const liste = [
   ['Aufstehen vom Stuhl', 'reha', 'Beine'],
   ['Treppensteigen', 'reha', 'Beine'],
   ['Gehtraining', 'reha', 'Gang'],
-  ['Ergometer', 'reha', 'Ausdauer'],
   ['Beckenkippen in Rückenlage', 'reha', 'Rücken'],
   ['Pendelübung Schulter', 'reha', 'Schulter'],
   ['Außenrotation mit Theraband', 'reha', 'Schulter']
 ];
 
-export const BIBLIOTHEK = liste.map(([name, kategorie, bereich], i) => ({ bibId: i + 1, name, kategorie, bereich }));
+export const BIBLIOTHEK = liste.map(([name, kategorie, bereich, einheit], i) => ({ bibId: i + 1, name, kategorie, bereich, ...(einheit ? { einheit } : {}) }));

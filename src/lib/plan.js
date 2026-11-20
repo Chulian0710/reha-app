@@ -1,5 +1,6 @@
 import { db } from './db.js';
 import { wochentag } from './datum.js';
+import { istAusdauer, streckeEinheit, ausdauerText } from './ausdauer.js';
 
 // Der Plan, der an einem Datum gilt: der zuletzt begonnene, dessen Zeitraum das Datum enthält.
 export function planAusListe(plaene, datum) {
@@ -34,6 +35,7 @@ export async function termineAm(datum) {
 }
 
 export function eintragText(e) {
+  if (istAusdauer(e.uebung)) return e.vorgabe || ausdauerText(e, streckeEinheit(e.uebung)) || 'ohne feste Vorgabe';
   let t = e.vorgabe || (e.saetze || e.wdh ? `${e.saetze || 1} × ${e.wdh || '?'}` : 'ohne feste Vorgabe');
   if (e.gewicht) t += ` · ${String(e.gewicht).replace('.', ',')} kg`;
   return t;

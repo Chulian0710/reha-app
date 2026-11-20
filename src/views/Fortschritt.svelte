@@ -9,6 +9,7 @@
   import { gehe } from '../lib/nav.js';
   import LineChart from '../lib/LineChart.svelte';
   import Medaille from '../lib/Medaille.svelte';
+  import { istAusdauer, streckeEinheit, zahl1 } from '../lib/ausdauer.js';
 
   const h = heute();
   const LINKS = '#00897b';
@@ -20,7 +21,9 @@
   const daten = liveQuery(async () => {
     const stand = await punktestand();
     const erledigt = await db.erledigt.toArray();
-    const saetze = (await db.saetze.toArray()).filter((s) => s.fertig && s.gewicht !== null && s.gewicht !== undefined);
+    const alleSaetze = (await db.saetze.toArray()).filter((s) => s.fertig);
+    const saetze = alleSaetze.filter((s) => s.gewicht !== null && s.gewicht !== undefined);
+    const ausdauerSaetze = alleSaetze.filter((s) => (s.strecke ?? null) !== null || (s.dauer ?? null) !== null);
     const uebungen = await db.uebungen.toArray();
     const reihen = (await db.reihen.toArray()).filter((r) => r.typ !== 'kraft');
     const werte = await db.werte.toArray();
@@ -29,6 +32,7 @@
       level: levelInfo(stand.verdient, await schwellen()),
       erledigt,
       saetze,
+      ausdauerSaetze,
       uebungen,
       reihen,
       werte,
@@ -111,6 +115,39 @@
   $: kraftStart = kraftPunkte[0];
   $: kraftJetzt = kraftPunkte[kraftPunkte.length - 1];
   $: kraftPlus = kraftStart && kraftJetzt && kraftStart.wert > 0 ? Math.round(((kraftJetzt.wert - kraftStart.wert) / kraftStart.wert) * 100) : null;
+
+  // --- Ausdauer: Strecke und Dauer je Tag ---
+  $: ausdauer = (() => {
+    if (!d) return [];
+    const je = {};
+    for (const s of d.ausdauerSaetze) {
+      const a = (je[s.uebungId] ||= { tage: {} });
+      const t = (a.tage[s.datum] ||= { strecke: 0, dauer: 0 });
+      t.strecke += s.strecke ?? 0;
+      t.dauer += s.dauer ?? 0;
+    }
+    return Object.entries(je)
+      .map(([id, a]) => {
+        const u = d.uebungen.find((x) => x.id === Number(id));
+        const tage = Object.entries(a.tage).map(([datum, t]) => ({ datum, ...t })).sort((x, y) => x.datum.localeCompare(y.datum));
+        return {
+          id: Number(id),
+          name: u?.name ?? 'Übung',
+          einheit: streckeEinheit(u),
+          tage,
+          gesamt: tage.reduce((s, t) => s + t.strecke, 0),
+          minuten: tage.reduce((s, t) => s + t.dauer, 0),
+          weiteste: Math.max(...tage.map((t) => t.strecke)),
+          letzte: tage[tage.length - 1].datum
+        };
+      })
+      .filter((a) => istAusdauer(d.uebungen.find((x) => x.id === a.id)) || a.gesamt || a.minuten)
+      .sort((a, b) => b.letzte.localeCompare(a.letzte));
+  })();
+  let ausdauerId = null;
+  $: if (ausdauer.length && !ausdauer.some((a) => a.id === ausdauerId)) ausdauerId = ausdauer[0].id;
+  $: ausdauerWahl = ausdauer.find((a) => a.id === ausdauerId);
+  const stunden = (min) => (min >= 60 ? `${Math.floor(min / 60)} h ${Math.round(min % 60)} min` : `${Math.round(min)} min`);
 
   function kraftZeigen(id) {
     kraftId = id;
@@ -275,6 +312,33 @@
         </button>
       {/each}
     </div>
+  {/if}
+
+  <!-- Ausdauer -->
+  {#if ausdauer.length}
+    <h2>Ausdauer</h2>
+    {#if ausdauer.length > 1}
+      <div class="chips filter-zeile" role="group" aria-label="Ausdauer-Übung">
+        {#each ausdauer as a (a.id)}
+          <button class="chip" class:an={ausdauerId === a.id} aria-pressed={ausdauerId === a.id} on:click={() => (ausdauerId = a.id)}>{a.name}</button>
+        {/each}
+      </div>
+    {/if}
+    {#if ausdauerWahl}
+      <div class="card" style={ausdauer.length > 1 ? 'margin-top: 10px' : ''}>
+        {#if ausdauer.length === 1}<strong style="display: block; margin-bottom: 10px">{ausdauerWahl.name}</strong>{/if}
+        <div class="mini-stats">
+          <div><span class="muted">Insgesamt</span><strong>{zahl1(ausdauerWahl.gesamt)} {ausdauerWahl.einheit}</strong><span class="muted">{ausdauerWahl.tage.length} {ausdauerWahl.tage.length === 1 ? 'Tag' : 'Tage'}</span></div>
+          <div><span class="muted">Weiteste</span><strong>{zahl1(ausdauerWahl.weiteste)} {ausdauerWahl.einheit}</strong><span class="muted">an einem Tag</span></div>
+          <div><span class="muted">Zeit</span><strong>{stunden(ausdauerWahl.minuten)}</strong><span class="muted">insgesamt</span></div>
+        </div>
+        {#if ausdauerWahl.tage.filter((t) => t.strecke > 0).length > 1}
+          <LineChart series={[{ name: 'Strecke', farbe: LINKS, punkte: ausdauerWahl.tage.filter((t) => t.strecke > 0).map((t) => ({ datum: t.datum, wert: Math.round(t.strecke * 100) / 100 }))}]} einheit={ausdauerWahl.einheit} />
+        {:else}
+          <p class="muted" style="margin: 0">Ab der zweiten Einheit mit Strecke siehst du hier den Verlauf.</p>
+        {/if}
+      </div>
+    {/if}
   {/if}
 
   </div>
