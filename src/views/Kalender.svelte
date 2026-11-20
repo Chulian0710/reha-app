@@ -2,7 +2,7 @@
   import { liveQuery } from 'dexie';
   import { db } from '../lib/db.js';
   import { iso, heute, wochentag, anzeige, parse, TAGE, tagKurz, plusTage } from '../lib/datum.js';
-  import { planAusListe, tagesplan, eintragText, verschieben } from '../lib/plan.js';
+  import { plaeneAusListe, tagesplan, eintragText, verschieben } from '../lib/plan.js';
   import { satzText, zahl } from '../lib/training.js';
   import { istAusdauer, streckeEinheit } from '../lib/ausdauer.js';
   import { gehe } from '../lib/nav.js';
@@ -31,11 +31,11 @@
     const status = {};
     for (let t = 1; t <= tage; t++) {
       const ds = iso(new Date(j, m, t));
-      const plan = planAusListe(plaene, ds);
+      const planIds = new Set(plaeneAusListe(plaene, ds).map((p) => p.id));
       const geplant = eintraege.filter(
-        (e) => e.datum === ds || (plan && e.planId === plan.id && e.wochentag === wochentag(ds) && !weg.has(`${ds}:${e.id}`))
+        (e) => e.datum === ds || (planIds.has(e.planId) && e.wochentag === wochentag(ds) && !weg.has(`${ds}:${e.id}`))
       );
-      if (!plan && !geplant.length) continue;
+      if (!planIds.size && !geplant.length) continue;
       if (!geplant.length && eintraege.some((e) => e.vonDatum === ds)) {
         status[ds] = 'verschoben';
         continue;
@@ -334,7 +334,7 @@
             <span class="zeile-text">
               {e.uebung?.name ?? 'Übung'}<br />
               <span class="muted">
-                {e.vonDatum ? `von ${tagKurz(e.vonDatum)} verschoben · ` : e.extra ? 'eingeplant · ' : ''}{$tag.saetze.some((s) => s.planEintragId === e.id)
+                {e.vonDatum ? `von ${tagKurz(e.vonDatum)} verschoben · ` : e.extra ? 'eingeplant · ' : $tag.tp.plaene.length > 1 ? `${e.planName} · ` : ''}{$tag.saetze.some((s) => s.planEintragId === e.id)
                   ? $tag.saetze.filter((s) => s.planEintragId === e.id).map((s) => satzText(s, e.uebung)).join(' · ')
                   : eintragText(e)}
               </span>
