@@ -3,7 +3,7 @@
   import { db } from '../lib/db.js';
   import { heute, anzeige, iso, parse, tagKurz } from '../lib/datum.js';
   import { levelInfo, levelGels, gelsFuerLevel, xpVergeben, xpEintragen, physioEintragen, physioEntfernen, regeln, schwellen, punktestand, aktivitaeten as aktivitaetenLaden, ruhetagPunkte } from '../lib/xp.js';
-  import { tagesplan, eintragText } from '../lib/plan.js';
+  import { tagesplan } from '../lib/plan.js';
   import { gehe } from '../lib/nav.js';
   import { abhaken, zuruecknehmen } from '../lib/training.js';
   import TrainingPanel from '../lib/TrainingPanel.svelte';
@@ -219,16 +219,14 @@
         <div class="zeile" style={offenId === e.id ? 'border-bottom: none' : ''}>
           <input id="u{e.id}" type="checkbox" checked={e.erledigt} disabled={zukunft} on:change={() => umschalten(e)} />
           <label for="u{e.id}" class="zeile-text">
-            {e.uebung?.name ?? 'Übung'}<br /><span class="muted">{e.vonDatum ? `von ${tagKurz(e.vonDatum)} verschoben · ` : e.extra ? 'eingeplant · ' : ''}{eintragText(e)} · +{e.xp ?? d.r.uebungXp} XP{e.uebung?.video ? ' · Video' : ''}</span>{#if e.notiz}<br /><span class="muted">{e.notiz}</span>{/if}
+            {e.uebung?.name ?? 'Übung'}<br /><span class="muted">{e.vonDatum ? `von ${tagKurz(e.vonDatum)} verschoben · ` : e.extra ? 'eingeplant · ' : ''}+{e.xp ?? d.r.uebungXp} XP</span>
           </label>
-          {#if !zukunft}
-            <button class="sek klein" aria-expanded={offenId === e.id} on:click={() => (offenId = offenId === e.id ? null : e.id)}>
-              {offenId === e.id ? 'Schließen' : 'Training'}
-            </button>
-          {/if}
+          <button class="sek klein" aria-expanded={offenId === e.id} on:click={() => (offenId = offenId === e.id ? null : e.id)}>
+            {offenId === e.id ? 'Schließen' : zukunft ? 'Details' : 'Training'}
+          </button>
         </div>
         {#if offenId === e.id}
-          {#key datum}<TrainingPanel eintrag={e} {datum} r={d.r} />{/key}
+          {#key datum}<TrainingPanel eintrag={e} {datum} r={d.r} nurDetails={zukunft} />{/key}
         {/if}
       {/each}
     </div>

@@ -23,12 +23,17 @@
     if (neu.length) hinweis = `Ziel erreicht: ${neu.join(', ')}!`;
   });
 
-  const daten = liveQuery(async () => ({
-    ziele: await zieleMitStand(),
-    uebungen: (await db.uebungen.toArray()).sort((a, b) => a.name.localeCompare(b.name, 'de')),
-    reihen: (await db.reihen.toArray()).filter((r) => r.typ !== 'kraft'),
-    best: await bestwerteJeUebung()
-  }));
+  const daten = liveQuery(async () => {
+    const ziele = await zieleMitStand();
+    // gelöschte Übungen nur noch, wenn ein Ziel sie verwendet
+    const inZielen = new Set(ziele.map((z) => z.uebungId));
+    return {
+      ziele,
+      uebungen: (await db.uebungen.toArray()).filter((u) => !u.geloescht || inZielen.has(u.id)).sort((a, b) => a.name.localeCompare(b.name, 'de')),
+      reihen: (await db.reihen.toArray()).filter((r) => r.typ !== 'kraft'),
+      best: await bestwerteJeUebung()
+    };
+  });
   $: d = $daten;
   $: offen = d ? d.ziele.filter((z) => !z.erreicht) : [];
   $: erreicht = d ? d.ziele.filter((z) => z.erreicht) : [];

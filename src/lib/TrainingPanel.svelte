@@ -8,10 +8,12 @@
   import LineChart from './LineChart.svelte';
   import { zielePruefen } from './ziele.js';
   import { istAusdauer, streckeEinheit, zahl1 } from './ausdauer.js';
+  import { eintragText } from './plan.js';
 
   export let eintrag; // Planeintrag mit .uebung und .erledigt
   export let datum;
   export let r; // XP-Regeln
+  export let nurDetails = false; // an zukünftigen Tagen nur Vorgabe, Anmerkung und Video zeigen
 
   let zeilen = [];
   let geladen = false;
@@ -101,12 +103,15 @@
 </script>
 
 <div class="training">
-  {#if eintrag.notiz}<p class="hinweis" style="margin-top: 0"><strong>Anmerkung:</strong> {eintrag.notiz}</p>{/if}
+  <p class="training-vorgabe"><span class="feldname">Vorgabe</span>{eintragText(eintrag)}</p>
+  {#if eintrag.notiz}<p class="hinweis" style="margin-top: 0; white-space: pre-line"><strong>Anmerkung:</strong> {eintrag.notiz}</p>{/if}
   {#if eintrag.uebung?.video}
     <Video url={eintrag.uebung.video} />
   {/if}
 
-  {#if geladen}
+  {#if nurDetails}
+    <p class="muted" style="margin: 6px 0 0">Sätze eintragen und abhaken geht an dem Tag selbst.</p>
+  {:else if geladen}
     <div class="satz satz-kopf muted" aria-hidden="true">
       {#if ausdauer}<span>{zeilen.length > 1 ? 'Teil' : ''}</span><span>Min</span><span>{einheit}</span><span></span>
       {:else}<span>Satz</span><span>kg</span><span>Wdh.</span><span></span>{/if}
