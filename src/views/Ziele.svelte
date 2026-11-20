@@ -1,4 +1,5 @@
 <script>
+  import { istAusdauer, streckeEinheit } from '../lib/ausdauer.js';
   import { onMount } from 'svelte';
   import { liveQuery } from 'dexie';
   import { db, heute } from '../lib/db.js';
@@ -41,14 +42,17 @@
   $: reihe = d && f.reiheId ? d.reihen.find((r) => r.id === Number(f.reiheId)) : null;
   $: reiheSeitig = reihe ? reihe.typ === 'umfang' || reihe.typ === 'beweglichkeit' : false;
   $: uebung = d && f.uebungId ? d.uebungen.find((u) => u.id === Number(f.uebungId)) : null;
-  $: einheit = f.quelle === 'uebung' ? 'kg' : f.quelle === 'reihe' ? reihe?.einheit || '' : f.einheit.trim();
+  $: einheit = f.quelle === 'uebung' ? (istAusdauer(uebung) ? streckeEinheit(uebung) : 'kg') : f.quelle === 'reihe' ? reihe?.einheit || '' : f.einheit.trim();
 
   // aktueller Wert als Hilfe beim Anlegen
   let jetzt = null;
   $: aktualisieren(f.quelle, f.uebungId, f.reiheId, f.seite, reiheSeitig, d);
   async function aktualisieren(quelle, uebungId, reiheId, seite, seitig) {
     jetzt = null;
-    if (quelle === 'uebung' && uebungId && d) jetzt = d.best[Number(uebungId)]?.gewicht ?? null;
+    if (quelle === 'uebung' && uebungId && d) {
+      const u = d.uebungen.find((x) => x.id === Number(uebungId));
+      jetzt = (istAusdauer(u) ? d.best[Number(uebungId)]?.strecke : d.best[Number(uebungId)]?.gewicht) ?? null;
+    }
     if (quelle === 'reihe' && reiheId) {
       const w = (await db.werte.where('reiheId').equals(Number(reiheId)).toArray()).filter((x) => !seitig || x.seite === seite);
       w.sort((a, b) => a.datum.localeCompare(b.datum) || a.id - b.id);
@@ -128,7 +132,7 @@
   }
   function quelleText(z) {
     if (z.art !== 'mess') return 'ohne Messwert';
-    if (z.quelle === 'uebung') return 'schwerster Satz im Training';
+    if (z.quelle === 'uebung') return istAusdauer(z.uebung) ? 'weiteste Strecke an einem Tag' : 'schwerster Satz im Training';
     if (z.quelle === 'reihe') return `Messwert${z.seite === 'L' ? ' links' : z.seite === 'R' ? ' rechts' : ''}`;
     return 'eigener Wert';
   }
@@ -154,7 +158,7 @@
       {#if f.art === 'mess'}
         <label for="zq">Woran misst du es?</label>
         <select id="zq" bind:value={f.quelle}>
-          <option value="uebung">Gewicht bei einer Übung (aus dem Training)</option>
+          <option value="uebung">Übung aus dem Training (Gewicht, bei Ausdauer Strecke)</option>
           <option value="reihe">Messwert, z. B. Umfang</option>
           <option value="manuell">Eigener Wert, z. B. Minuten spazieren</option>
         </select>

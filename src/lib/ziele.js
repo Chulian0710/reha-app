@@ -1,6 +1,7 @@
 import { db } from './db.js';
 import { heute } from './datum.js';
 import { regeln, xpVergeben, xpEntfernen } from './xp.js';
+import { istAusdauer } from './ausdauer.js';
 
 // Standard-Messstellen für den Umfang, jeweils links und rechts
 export const UMFANG_STELLEN = ['Wade', 'Wade angespannt', 'Oberschenkel unten', 'Oberschenkel oben', 'Po'];
@@ -23,22 +24,33 @@ export async function umfangReihen() {
   });
 }
 
-// Schwerster abgehakter Satz je Übung: { [uebungId]: { gewicht, wdh, datum } }
+// Je Übung: schwerster abgehakter Satz { gewicht, wdh, datum } und (Ausdauer) weiteste Strecke an einem Tag { strecke }
 export async function bestwerteJeUebung() {
-  const saetze = (await db.saetze.toArray()).filter((s) => s.fertig && s.gewicht !== null && s.gewicht !== undefined);
+  const fertig = (await db.saetze.toArray()).filter((s) => s.fertig);
   const best = {};
-  for (const s of saetze) {
+  for (const s of fertig) {
+    if (s.gewicht === null || s.gewicht === undefined) continue;
     const b = best[s.uebungId];
-    if (!b || s.gewicht > b.gewicht || (s.gewicht === b.gewicht && (s.wdh ?? 0) > (b.wdh ?? 0))) {
-      best[s.uebungId] = { gewicht: s.gewicht, wdh: s.wdh, datum: s.datum };
+    if (!b || b.gewicht === undefined || s.gewicht > b.gewicht || (s.gewicht === b.gewicht && (s.wdh ?? 0) > (b.wdh ?? 0))) {
+      best[s.uebungId] = { ...b, gewicht: s.gewicht, wdh: s.wdh, datum: s.datum };
     }
+  }
+  const strecken = {};
+  for (const s of fertig) {
+    if (s.strecke === null || s.strecke === undefined) continue;
+    const k = `${s.uebungId}|${s.datum}`;
+    strecken[k] = (strecken[k] ?? 0) + s.strecke;
+  }
+  for (const [k, wert] of Object.entries(strecken)) {
+    const id = Number(k.split('|')[0]);
+    best[id] = { ...best[id], strecke: Math.max(best[id]?.strecke ?? 0, Math.round(wert * 100) / 100) };
   }
   return best;
 }
 
 // Aktueller Stand eines Ziels mit Messwert
-async function aktuellerWert(z, best) {
-  if (z.quelle === 'uebung') return best[z.uebungId]?.gewicht ?? null;
+async function aktuellerWert(z, best, uebung) {
+  if (z.quelle === 'uebung') return (istAusdauer(uebung) ? best[z.uebungId]?.strecke : best[z.uebungId]?.gewicht) ?? null;
   if (z.quelle === 'reihe') {
     const werte = (await db.werte.where('reiheId').equals(z.reiheId).toArray()).filter((w) => !z.seite || w.seite === z.seite);
     if (!werte.length) return null;
@@ -72,7 +84,7 @@ export async function zieleMitStand() {
   const reihen = await db.reihen.bulkGet(ziele.map((z) => z.reiheId ?? 0));
   const liste = [];
   for (const [i, z] of ziele.entries()) {
-    const aktuell = z.art === 'mess' ? await aktuellerWert(z, best) : null;
+    const aktuell = z.art === 'mess' ? await aktuellerWert(z, best, uebungen[i]) : null;
     liste.push({ ...z, uebung: uebungen[i], reihe: reihen[i], aktuell, anteil: anteil(z, aktuell) });
   }
   return liste.sort((a, b) => {

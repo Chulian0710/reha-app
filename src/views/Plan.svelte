@@ -3,6 +3,7 @@
   import { db } from '../lib/db.js';
   import { heute, wochentag, TAGE, TAGE_LANG, kurz } from '../lib/datum.js';
   import { planAusListe, eintragText } from '../lib/plan.js';
+  import { istAusdauer, streckeEinheit } from '../lib/ausdauer.js';
   import { alsDataUrl, dataUrlOeffnen } from '../lib/datei.js';
   import { gehe } from '../lib/nav.js';
   import Video from '../lib/Video.svelte';
@@ -57,7 +58,7 @@
   let f = {};
   function bearbeiten(e) {
     bearbeitId = e.id;
-    f = { saetze: e.saetze ?? '', wdh: e.wdh ?? '', gewicht: e.gewicht ?? '', xp: e.xp ?? '', video: e.uebung?.video ?? '', notiz: e.notiz ?? '', vorgabe: e.vorgabe ?? '' };
+    f = { saetze: e.saetze ?? '', wdh: e.wdh ?? '', gewicht: e.gewicht ?? '', dauer: e.dauer ?? '', strecke: e.strecke ?? '', xp: e.xp ?? '', video: e.uebung?.video ?? '', notiz: e.notiz ?? '', vorgabe: e.vorgabe ?? '' };
   }
   const zahl = (v) => (v === '' || v === null ? null : Number(String(v).replace(',', '.')));
   async function speichern() {
@@ -66,6 +67,8 @@
       saetze: zahl(f.saetze),
       wdh: zahl(f.wdh),
       gewicht: zahl(f.gewicht),
+      dauer: zahl(f.dauer),
+      strecke: zahl(f.strecke),
       xp: zahl(f.xp),
       vorgabe: String(f.vorgabe).trim() || null,
       notiz: String(f.notiz).trim() || null
@@ -203,15 +206,26 @@
 
 <Sheet offen={!!bearbeitEintrag} titel={bearbeitEintrag?.uebung?.name ?? 'Übung'} onclose={() => (bearbeitId = null)}>
   {#if bearbeitEintrag}
-    <div class="row" style="flex-wrap: nowrap">
-      <div style="flex: 1; min-width: 0"><label for="ps">Sätze</label><input id="ps" inputmode="numeric" bind:value={f.saetze} /></div>
-      <div style="flex: 1; min-width: 0"><label for="pw">Wdh.</label><input id="pw" inputmode="numeric" bind:value={f.wdh} /></div>
-    </div>
-    <div class="row" style="flex-wrap: nowrap">
-      <div style="flex: 1; min-width: 0"><label for="pg">Gewicht (kg)</label><input id="pg" inputmode="decimal" bind:value={f.gewicht} /></div>
-      <div style="flex: 1; min-width: 0"><label for="px">XP (5 bis 10)</label><input id="px" inputmode="numeric" bind:value={f.xp} placeholder="Standard" /></div>
-    </div>
-    <label for="pvg">Vorgabe wie im Plan (optional, z. B. „3 × 30 Sek“)</label>
+    {#if istAusdauer(bearbeitEintrag.uebung)}
+      <div class="row" style="flex-wrap: nowrap">
+        <div style="flex: 1; min-width: 0"><label for="pd">Dauer (Min)</label><input id="pd" inputmode="decimal" bind:value={f.dauer} placeholder="optional" /></div>
+        <div style="flex: 1; min-width: 0"><label for="pst">Strecke ({streckeEinheit(bearbeitEintrag.uebung)})</label><input id="pst" inputmode="decimal" bind:value={f.strecke} placeholder="optional" /></div>
+      </div>
+      <div class="row" style="flex-wrap: nowrap">
+        <div style="flex: 1; min-width: 0"><label for="px">XP (5 bis 10)</label><input id="px" inputmode="numeric" bind:value={f.xp} placeholder="Standard" /></div>
+        <div style="flex: 1; min-width: 0"></div>
+      </div>
+    {:else}
+      <div class="row" style="flex-wrap: nowrap">
+        <div style="flex: 1; min-width: 0"><label for="ps">Sätze</label><input id="ps" inputmode="numeric" bind:value={f.saetze} /></div>
+        <div style="flex: 1; min-width: 0"><label for="pw">Wdh.</label><input id="pw" inputmode="numeric" bind:value={f.wdh} /></div>
+      </div>
+      <div class="row" style="flex-wrap: nowrap">
+        <div style="flex: 1; min-width: 0"><label for="pg">Gewicht (kg)</label><input id="pg" inputmode="decimal" bind:value={f.gewicht} /></div>
+        <div style="flex: 1; min-width: 0"><label for="px">XP (5 bis 10)</label><input id="px" inputmode="numeric" bind:value={f.xp} placeholder="Standard" /></div>
+      </div>
+    {/if}
+    <label for="pvg">Vorgabe wie im Plan (optional, z. B. {istAusdauer(bearbeitEintrag.uebung) ? '„locker, Puls unter 130“' : '„3 × 30 Sek“'})</label>
     <input id="pvg" bind:value={f.vorgabe} />
     <label for="pnz">Anmerkung</label>
     <input id="pnz" bind:value={f.notiz} />

@@ -2,6 +2,7 @@
   import { liveQuery } from 'dexie';
   import { db } from '../lib/db.js';
   import { BIBLIOTHEK, KATEGORIEN } from '../lib/bibliothek.js';
+  import { EINHEITEN, streckeEinheit } from '../lib/ausdauer.js';
   import { TAGE_LANG, anzeige } from '../lib/datum.js';
   import { gehe } from '../lib/nav.js';
   import { sxrLesen } from '../lib/pdfparse.js';
@@ -36,7 +37,7 @@
   async function waehlen(u) {
     const id = u.istGespeichert
       ? u.id
-      : await db.uebungen.add({ name: u.name, kategorie: u.kategorie, bereich: u.bereich || '', quelle: 'bibliothek' });
+      : await db.uebungen.add({ name: u.name, kategorie: u.kategorie, bereich: u.bereich || '', quelle: 'bibliothek', ...(u.einheit ? { einheit: u.einheit } : {}) });
     // Vorgabe aus dem Physio-Plan übernehmen, sonst 3 × 10 (Ausdauer: ohne Sätze)
     const sxr = u.vorgabe ? sxrLesen(u.vorgabe) : null;
     const ausdauer = u.kategorie === 'ausdauer';
@@ -66,9 +67,11 @@
   let eKategorie = 'reha';
   let eBereich = '';
   let eVideo = '';
+  let eEinheit = 'km';
   async function eigeneAnlegen() {
     if (!eName.trim()) return;
     const u = { name: eName.trim(), kategorie: eKategorie, bereich: eBereich.trim(), quelle: 'eigen', video: eVideo.trim() || null };
+    if (eKategorie === 'ausdauer') u.einheit = eEinheit;
     const id = await db.uebungen.add(u);
     eName = '';
     eBereich = '';
@@ -101,7 +104,7 @@
   {/if}
   {#each treffer.slice(0, 60) as u (u.istGespeichert ? 'g' + u.id : 'b' + u.bibId)}
     <div class="zeile">
-      <span class="zeile-text">{u.name}<br /><span class="muted">{[u.bereich, KATEGORIEN[u.kategorie], u.quelle === 'eigen' ? 'eigene' : u.quelle === 'physio' ? 'vom Physio' : '', u.vorgabe].filter(Boolean).join(' · ')}</span></span>
+      <span class="zeile-text">{u.name}<br /><span class="muted">{[u.bereich, KATEGORIEN[u.kategorie], u.quelle === 'eigen' ? 'eigene' : u.quelle === 'physio' ? 'vom Physio' : '', u.kategorie === 'ausdauer' ? `Minuten und ${streckeEinheit(u) === 'm' ? 'Meter' : 'km'}` : '', u.vorgabe].filter(Boolean).join(' · ')}</span></span>
       <button class="sek klein" on:click={() => waehlen(u)}>{params.datum ? 'Einplanen' : params.planId ? 'Hinzufügen' : 'Speichern'}</button>
     </div>
   {/each}
@@ -118,6 +121,13 @@
     <select id="ekat" bind:value={eKategorie}>
       {#each Object.entries(KATEGORIEN) as [id, label]}<option value={id}>{label}</option>{/each}
     </select>
+    {#if eKategorie === 'ausdauer'}
+      <label for="eeinheit">Strecke messen in</label>
+      <select id="eeinheit" bind:value={eEinheit}>
+        {#each Object.entries(EINHEITEN) as [id, label]}<option value={id}>{label}</option>{/each}
+      </select>
+      <p class="muted" style="margin: 6px 0 0">Im Training trägst du dann Dauer (Minuten) und Strecke ein, keine Sätze und kein Gewicht.</p>
+    {/if}
     <label for="ebereich">Körperbereich (optional)</label>
     <input id="ebereich" bind:value={eBereich} />
     <label for="evideo">YouTube-Link aus dem Plan (optional)</label>

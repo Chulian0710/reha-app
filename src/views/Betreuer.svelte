@@ -6,7 +6,8 @@
   import Gel from '../lib/Gel.svelte';
   import Medaille from '../lib/Medaille.svelte';
   import { regeln, schwellen, levelGels, gelsFuerLevel, STANDARD_SCHWELLEN, aktivitaeten as aktivitaetenLaden, STANDARD_AKTIVITAETEN, STANDARD_REGELN } from '../lib/xp.js';
-  import { BEDINGUNGEN, KRITERIEN, bedingungText } from '../lib/abzeichen.js';
+  import { BEDINGUNGEN, KRITERIEN, kriterienFuer, bedingungText } from '../lib/abzeichen.js';
+  import { streckeEinheit } from '../lib/ausdauer.js';
   import { BIBLIOTHEK, KATEGORIEN } from '../lib/bibliothek.js';
   import { gelsSchenken } from '../lib/gels.js';
   import { entsperrt, hatPasswort, passwortSetzen, passwortPruefen, zuruecksetzen, packHerunterladen } from '../lib/betreuer.js';
@@ -72,13 +73,23 @@
       const k = u.name.trim().toLowerCase();
       if (gesehen.has(k)) continue;
       gesehen.add(k);
-      alle.push({ name: u.name.trim(), kategorie: KATEGORIEN[u.kategorie] ? u.kategorie : 'reha' });
+      alle.push({ name: u.name.trim(), kategorie: KATEGORIEN[u.kategorie] ? u.kategorie : 'reha', einheit: streckeEinheit(u) });
     }
-    return Object.entries(KATEGORIEN).map(([id, label]) => ({
-      label,
-      namen: alle.filter((u) => u.kategorie === id).map((u) => u.name).sort((a, b) => a.localeCompare(b, 'de'))
-    }));
+    return {
+      info: Object.fromEntries(alle.map((u) => [u.name, u])),
+      gruppen: Object.entries(KATEGORIEN).map(([id, label]) => ({
+        label,
+        namen: alle.filter((u) => u.kategorie === id).map((u) => u.name).sort((a, b) => a.localeCompare(b, 'de'))
+      }))
+    };
   });
+  // Gewählte Übung beim Abzeichen: Ausdauer? Dann passen andere Kriterien (Strecke, Dauer statt Gewicht).
+  $: abzUebung = abz.typ === 'uebung' && abz.uebung ? $uebungsGruppen?.info[abz.uebung] : null;
+  $: abzAusdauer = abzUebung ? abzUebung.kategorie === 'ausdauer' : !!abz.einheit;
+  $: abzEinheit = abzUebung?.einheit || abz.einheit || 'km';
+  $: abzKriterien = kriterienFuer(abzAusdauer);
+  // erst zurücksetzen, wenn die Übung bekannt ist (sonst ginge beim Bearbeiten das Kriterium verloren)
+  $: if (abz.typ === 'uebung' && abzUebung && !abzKriterien.some(([id]) => id === abz.kriterium)) abz.kriterium = 'anzahl';
 
   let stufen = [];
   let stufenGels = []; // Gels je Level, Index wie stufen (Level 1 hat keine)
@@ -203,10 +214,10 @@
   let abzForm;
   function abzBearbeiten(a) {
     abzFehler = '';
-    abz = { id: a.id, uid: a.uid, name: a.name, typ: a.typ, uebung: a.uebung || '', kriterium: a.kriterium || 'anzahl', anzahl: a.anzahl, gels: a.gels ?? '' };
+    abz = { id: a.id, uid: a.uid, name: a.name, typ: a.typ, uebung: a.uebung || '', kriterium: a.kriterium || 'anzahl', einheit: a.einheit, anzahl: a.anzahl, gels: a.gels ?? '' };
     abzForm?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
-  $: abzVorschau = abz.typ === 'uebung' && !abz.uebung ? '' : bedingungText({ ...abz, anzahl: Number(String(abz.anzahl).replace(',', '.')) || 0 });
+  $: abzVorschau = abz.typ === 'uebung' && !abz.uebung ? '' : bedingungText({ ...abz, einheit: abzEinheit, anzahl: Number(String(abz.anzahl).replace(',', '.')) || 0 });
   async function abzSpeichern() {
     abzFehler = '';
     const anzahl = Number(String(abz.anzahl).replace(',', '.'));
@@ -214,7 +225,7 @@
     if (!(anzahl > 0)) return (abzFehler = 'Bitte eine Zahl größer als 0 eingeben.');
     const gels = String(abz.gels).trim() === '' ? xpZahl(r.gelsProAbzeichen) : xpZahl(abz.gels);
     const daten = { uid: abz.uid || neueUid(), name: abz.name.trim() || abzVorschau, typ: abz.typ, anzahl, gels };
-    if (abz.typ === 'uebung') Object.assign(daten, { uebung: abz.uebung, kriterium: abz.kriterium });
+    if (abz.typ === 'uebung') Object.assign(daten, { uebung: abz.uebung, kriterium: abz.kriterium, ...(abzAusdauer ? { einheit: abzEinheit } : {}) });
     // put ersetzt das ganze Abzeichen (alte Felder wie uebung fallen weg); die uid bleibt, damit es keine zweiten Gels gibt
     if (abz.id) await db.abzeichen.put({ id: abz.id, ...daten });
     else await db.abzeichen.add(daten);
@@ -477,7 +488,7 @@
       <label for="aueb">Übung</label>
       <select id="aueb" bind:value={abz.uebung}>
         <option value="" disabled>Übung wählen …</option>
-        {#each $uebungsGruppen || [] as g}
+        {#each $uebungsGruppen?.gruppen || [] as g}
           {#if g.namen.length}
             <optgroup label={g.label}>
               {#each g.namen as n}<option value={n}>{n}</option>{/each}
@@ -487,12 +498,12 @@
       </select>
       <label for="akrit">Was zählt</label>
       <select id="akrit" bind:value={abz.kriterium}>
-        {#each Object.entries(KRITERIEN) as [id, k]}<option value={id}>{k.label}</option>{/each}
+        {#each abzKriterien as [id, k]}<option value={id}>{k.label}</option>{/each}
       </select>
     {/if}
     <div class="row" style="flex-wrap: nowrap">
       <div style="flex: 2; min-width: 0">
-        <label for="aanz">{abz.typ === 'uebung' ? KRITERIEN[abz.kriterium].feld : abz.typ === 'level' ? 'Level' : 'Anzahl'}</label>
+        <label for="aanz">{abz.typ === 'uebung' ? KRITERIEN[abz.kriterium].feld(abzEinheit) : abz.typ === 'level' ? 'Level' : 'Anzahl'}</label>
         <input id="aanz" inputmode="decimal" bind:value={abz.anzahl} />
       </div>
       <div style="flex: 1; min-width: 0">
