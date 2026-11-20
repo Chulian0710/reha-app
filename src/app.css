@@ -499,3 +499,17 @@ button.mehr-zeile { justify-content: flex-start; gap: 14px; }
 .brief-oeffnen { text-align: center; padding-top: 6px; }
 .brief-oeffnen .umschlag { margin-bottom: 18px; }
 @media (prefers-reduced-motion: reduce) { .brief-mini { animation: none; } }
+
+/* Zeile mit Häkchen zum Auswählen (Mehrfachauswahl) */
+label.zeile.waehlbar { justify-content: flex-start; margin: 0; font-size: 1rem; color: var(--text); cursor: pointer; }
+label.zeile.waehlbar .zeile-text { min-width: 0; }
+
+/* Verschieben im Kalender */
+button.weg-zeile { width: 100%; text-align: left; font-weight: 400; text-decoration: none; border-radius: 0; border-top: 1px solid var(--line); }
+.v-kopf { text-align: center; font-size: 0.78rem; }
+.wochentage .chip.v-tag { font-variant-numeric: tabular-nums; }
+
+/* Leiste mit „Hinzufügen“, bleibt über der Tab-Leiste stehen */
+.auswahl-leiste { position: sticky; bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 20; margin: 12px 0; }
+.auswahl-leiste button { width: 100%; box-shadow: 0 6px 20px rgba(31, 42, 41, 0.22); }
+@media (min-width: 900px) { .auswahl-leiste { bottom: 16px; } }

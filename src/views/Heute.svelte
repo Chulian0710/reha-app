@@ -1,7 +1,7 @@
 <script>
   import { liveQuery } from 'dexie';
   import { db } from '../lib/db.js';
-  import { heute, anzeige, iso, parse } from '../lib/datum.js';
+  import { heute, anzeige, iso, parse, tagKurz } from '../lib/datum.js';
   import { levelInfo, levelGels, gelsFuerLevel, xpVergeben, xpEintragen, physioEintragen, physioEntfernen, regeln, schwellen, punktestand, aktivitaeten as aktivitaetenLaden, ruhetagPunkte } from '../lib/xp.js';
   import { tagesplan, eintragText } from '../lib/plan.js';
   import { gehe } from '../lib/nav.js';
@@ -185,7 +185,7 @@
       <p style="margin-top: 0">Für {datum === h ? 'heute' : 'diesen Tag'} gibt es keinen Trainingsplan.</p>
       <div class="row">
         <button class="sek" on:click={() => gehe('plan')}>Plan anlegen</button>
-        {#if datum >= h}<button class="sek" on:click={() => gehe('uebungen', { datum })}>Übung einplanen</button>{/if}
+        {#if datum >= h}<button class="sek" on:click={() => gehe('uebungen', { datum, von: 'heute' })}>Übung einplanen</button>{/if}
       </div>
     </div>
   {:else if d.tp.ruhetag}
@@ -200,6 +200,15 @@
         <button on:click={ruhetagEintragen}>Ruhetag eintragen (+{d.ruheXp} XP)</button>
       {/if}
     </div>
+  {:else if d.tp.eintraege.length === 0}
+    <h2>Verschoben</h2>
+    <div class="card">
+      <p style="margin-top: 0">Die Übungen {datum === h ? 'von heute' : 'dieses Tages'} sind verschoben.</p>
+      {#each d.tp.weg as w (w.id)}
+        <div class="muted">{w.uebung?.name ?? 'Übung'} · auf {tagKurz(w.datum)}</div>
+      {/each}
+      <button class="link" style="margin-top: 10px" on:click={() => gehe('kalender', { datum })}>Im Kalender ansehen</button>
+    </div>
   {:else}
     <div class="row" style="justify-content: space-between; align-items: baseline">
       <h2>{zukunft ? 'Geplant' : datum === h ? 'Dein Plan heute' : 'Dein Plan'}</h2>
@@ -210,7 +219,7 @@
         <div class="zeile" style={offenId === e.id ? 'border-bottom: none' : ''}>
           <input id="u{e.id}" type="checkbox" checked={e.erledigt} disabled={zukunft} on:change={() => umschalten(e)} />
           <label for="u{e.id}" class="zeile-text">
-            {e.uebung?.name ?? 'Übung'}<br /><span class="muted">{e.extra ? 'eingeplant · ' : ''}{eintragText(e)} · +{e.xp ?? d.r.uebungXp} XP{e.uebung?.video ? ' · Video' : ''}</span>{#if e.notiz}<br /><span class="muted">{e.notiz}</span>{/if}
+            {e.uebung?.name ?? 'Übung'}<br /><span class="muted">{e.vonDatum ? `von ${tagKurz(e.vonDatum)} verschoben · ` : e.extra ? 'eingeplant · ' : ''}{eintragText(e)} · +{e.xp ?? d.r.uebungXp} XP{e.uebung?.video ? ' · Video' : ''}</span>{#if e.notiz}<br /><span class="muted">{e.notiz}</span>{/if}
           </label>
           {#if !zukunft}
             <button class="sek klein" aria-expanded={offenId === e.id} on:click={() => (offenId = offenId === e.id ? null : e.id)}>
@@ -224,6 +233,12 @@
       {/each}
     </div>
     {#if zukunft}<p class="muted">Abhaken geht an dem Tag selbst.</p>{/if}
+    {#if erledigtAnzahl < d.tp.eintraege.length}
+      <button class="link" on:click={() => gehe('kalender', { datum })}>Keine Zeit? Übungen auf einen anderen Tag verschieben</button>
+    {/if}
+    {#if d.tp.weg.length}
+      <p class="muted">{d.tp.weg.length === 1 ? '1 Übung' : `${d.tp.weg.length} Übungen`} verschoben auf {[...new Set(d.tp.weg.map((w) => tagKurz(w.datum)))].join(', ')}</p>
+    {/if}
   {/if}
 
   </div>

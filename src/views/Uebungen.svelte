@@ -5,12 +5,35 @@
   import { EINHEITEN, streckeEinheit } from '../lib/ausdauer.js';
   import { TAGE_LANG, anzeige } from '../lib/datum.js';
   import { gehe } from '../lib/nav.js';
+  import { tagesplan } from '../lib/plan.js';
+  import { zeigeToast } from '../lib/toast.js';
   import { sxrLesen } from '../lib/pdfparse.js';
   import Sheet from '../lib/Sheet.svelte';
 
   export let params = {};
 
   const gespeichert = liveQuery(() => db.uebungen.toArray());
+
+  // Für einen Plantag oder ein Datum wählt man mehrere Übungen aus und fügt sie auf einmal hinzu.
+  const mehrfach = !!(params.planId || params.datum);
+  const schluessel = (u) => (u.istGespeichert ? 'g' + u.id : 'b' + u.bibId);
+  let auswahl = new Map(); // Schlüssel → Übung, bleibt beim Suchen und Filtern erhalten
+  function umschalten(u) {
+    const k = schluessel(u);
+    if (auswahl.has(k)) auswahl.delete(k);
+    else auswahl.set(k, u);
+    auswahl = auswahl;
+  }
+
+  // Übungen, die an dem Tag schon drin sind (nur als Hinweis, doppelt geht trotzdem)
+  const schonDa = liveQuery(async () => {
+    if (params.planId) {
+      const es = await db.planEintraege.where('planId').equals(params.planId).toArray();
+      return new Set(es.filter((e) => e.wochentag === params.wochentag).map((e) => e.uebungId));
+    }
+    if (params.datum) return new Set((await tagesplan(params.datum)).eintraege.map((e) => e.uebungId));
+    return new Set();
+  });
 
   let suche = '';
   let filter = 'alle';
@@ -34,10 +57,15 @@
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 
-  async function waehlen(u) {
-    const id = u.istGespeichert
+  // Speichert die Übung (falls nötig) und gibt ihre ID zurück
+  async function sichern(u) {
+    return u.istGespeichert
       ? u.id
       : await db.uebungen.add({ name: u.name, kategorie: u.kategorie, bereich: u.bereich || '', quelle: 'bibliothek', ...(u.einheit ? { einheit: u.einheit } : {}) });
+  }
+
+  async function eintragen(u) {
+    const id = await sichern(u);
     // Vorgabe aus dem Physio-Plan übernehmen, sonst 3 × 10 (Ausdauer: ohne Sätze)
     const sxr = u.vorgabe ? sxrLesen(u.vorgabe) : null;
     const ausdauer = u.kategorie === 'ausdauer';
@@ -49,16 +77,30 @@
       gewicht: null,
       xp: null
     };
-    if (params.planId) {
-      await db.planEintraege.add({ planId: params.planId, wochentag: params.wochentag, uebungId: id, ...vorgabe });
-      gehe('plan', { planId: params.planId, wochentag: params.wochentag });
-    } else if (params.datum) {
-      // einmalige Zusatzübung nur an diesem Tag
-      await db.planEintraege.add({ planId: null, wochentag: null, datum: params.datum, uebungId: id, ...vorgabe });
-      gehe('kalender', { datum: params.datum });
-    } else {
-      hinweis = `„${u.name}“ gespeichert.`;
-    }
+    if (params.planId) await db.planEintraege.add({ planId: params.planId, wochentag: params.wochentag, uebungId: id, ...vorgabe });
+    // einmalige Zusatzübung nur an diesem Tag
+    else await db.planEintraege.add({ planId: null, wochentag: null, datum: params.datum, uebungId: id, ...vorgabe });
+  }
+
+  let speichert = false;
+  async function hinzufuegen() {
+    if (!auswahl.size || speichert) return;
+    speichert = true;
+    const n = auswahl.size;
+    for (const u of auswahl.values()) await eintragen(u);
+    zeigeToast(`${n === 1 ? '1 Übung' : `${n} Übungen`} ${params.datum ? 'eingeplant' : 'hinzugefügt'}`);
+    fertig();
+  }
+
+  function fertig() {
+    if (params.planId) gehe('plan', { planId: params.planId, wochentag: params.wochentag });
+    else if (params.von === 'heute') gehe('heute', { datum: params.datum });
+    else gehe('kalender', { datum: params.datum });
+  }
+
+  async function speichern(u) {
+    await sichern(u);
+    hinweis = `„${u.name}“ gespeichert.`;
   }
 
   // eigene Übung
@@ -77,15 +119,19 @@
     eBereich = '';
     eVideo = '';
     zeigeEigene = false;
-    await waehlen({ ...u, id, istGespeichert: true });
+    if (mehrfach) {
+      auswahl.set('g' + id, { ...u, id, istGespeichert: true });
+      auswahl = auswahl;
+      hinweis = `„${u.name}“ angelegt und ausgewählt.`;
+    } else hinweis = `„${u.name}“ gespeichert.`;
   }
 
   const filterListe = [['alle', 'Alle'], ['kraft', 'Kraft'], ['ausdauer', 'Ausdauer'], ['mobility', 'Mobility'], ['reha', 'Reha'], ['physio', 'Physio'], ['eigene', 'Eigene']];
 </script>
 
 <h1>Übung hinzufügen</h1>
-{#if params.planId}<p class="muted" style="margin-top: -8px">für {TAGE_LANG[params.wochentag - 1]}</p>{/if}
-{#if params.datum}<p class="muted" style="margin-top: -8px">einmalig einplanen für {anzeige(params.datum)}</p>{/if}
+{#if params.planId}<p class="muted" style="margin-top: -8px">für {TAGE_LANG[params.wochentag - 1]} · mehrere auswählen möglich</p>{/if}
+{#if params.datum}<p class="muted" style="margin-top: -8px">einmalig einplanen für {anzeige(params.datum)} · mehrere auswählen möglich</p>{/if}
 
 <label for="suche">Suche in der Übungsbibliothek</label>
 <input id="suche" type="search" bind:value={suche} placeholder="z. B. Wade, Knie, Brücke" />
@@ -102,17 +148,34 @@
   {#if treffer.length === 0}
     <p class="muted" style="margin: 0">Nichts gefunden.</p>
   {/if}
-  {#each treffer.slice(0, 60) as u (u.istGespeichert ? 'g' + u.id : 'b' + u.bibId)}
-    <div class="zeile">
-      <span class="zeile-text">{u.name}<br /><span class="muted">{[u.bereich, KATEGORIEN[u.kategorie], u.quelle === 'eigen' ? 'eigene' : u.quelle === 'physio' ? 'vom Physio' : '', u.kategorie === 'ausdauer' ? `Minuten und ${streckeEinheit(u) === 'm' ? 'Meter' : 'km'}` : '', u.vorgabe].filter(Boolean).join(' · ')}</span></span>
-      <button class="sek klein" on:click={() => waehlen(u)}>{params.datum ? 'Einplanen' : params.planId ? 'Hinzufügen' : 'Speichern'}</button>
-    </div>
+  {#each treffer.slice(0, 60) as u (schluessel(u))}
+    {#if mehrfach}
+      <label class="zeile waehlbar">
+        <input type="checkbox" checked={auswahl.has(schluessel(u))} on:change={() => umschalten(u)} />
+        <span class="zeile-text">{u.name}<br /><span class="muted">{@render details(u)}</span></span>
+      </label>
+    {:else}
+      <div class="zeile">
+        <span class="zeile-text">{u.name}<br /><span class="muted">{@render details(u)}</span></span>
+        <button class="sek klein" on:click={() => speichern(u)}>Speichern</button>
+      </div>
+    {/if}
   {/each}
 </div>
 
+{#snippet details(u)}{[u.istGespeichert && $schonDa?.has(u.id) ? (params.datum ? 'schon eingeplant' : 'schon an dem Tag') : '', u.bereich, KATEGORIEN[u.kategorie], u.quelle === 'eigen' ? 'eigene' : u.quelle === 'physio' ? 'vom Physio' : '', u.kategorie === 'ausdauer' ? `Minuten und ${streckeEinheit(u) === 'm' ? 'Meter' : 'km'}` : '', u.vorgabe].filter(Boolean).join(' · ')}{/snippet}
+
+{#if mehrfach && auswahl.size}
+  <div class="auswahl-leiste">
+    <button on:click={hinzufuegen} disabled={speichert}>
+      {auswahl.size === 1 ? '1 Übung' : `${auswahl.size} Übungen`} {params.datum ? 'einplanen' : 'hinzufügen'}
+    </button>
+  </div>
+{/if}
+
 <p class="hinweis">Nichts Passendes? Reha-Übungen vom Physio legst du am besten selbst an. Die Liste enthält nur Namen, die Ausführung zeigt dein Physio.</p>
 
-<button class="breit" on:click={() => (zeigeEigene = true)}>Eigene Übung anlegen</button>
+<button class={mehrfach ? 'sek breit' : 'breit'} on:click={() => (zeigeEigene = true)}>Eigene Übung anlegen</button>
 
 <Sheet offen={zeigeEigene} titel="Eigene Übung" onclose={() => (zeigeEigene = false)}>
     <label for="ename">Name</label>
@@ -132,11 +195,11 @@
     <input id="ebereich" bind:value={eBereich} />
     <label for="evideo">YouTube-Link aus dem Plan (optional)</label>
     <input id="evideo" type="url" inputmode="url" bind:value={eVideo} placeholder="https://youtu.be/…" />
-    <div class="sheet-aktionen"><button on:click={eigeneAnlegen} disabled={!eName.trim()}>Anlegen{params.datum ? ' und einplanen' : params.planId ? ' und hinzufügen' : ''}</button></div>
+    <div class="sheet-aktionen"><button on:click={eigeneAnlegen} disabled={!eName.trim()}>Anlegen{mehrfach ? ' und auswählen' : ''}</button></div>
 </Sheet>
 
-{#if params.datum}
-  <button class="sek breit" style="margin-top: 10px" on:click={() => gehe('kalender', { datum: params.datum })}>Zurück zum Kalender</button>
-{:else if params.planId}
-  <button class="sek breit" style="margin-top: 10px" on:click={() => gehe('plan', { planId: params.planId, wochentag: params.wochentag })}>Zurück zum Plan</button>
+{#if mehrfach}
+  <button class="sek breit" style="margin-top: 10px" on:click={fertig}>
+    {auswahl.size ? 'Abbrechen' : params.planId ? 'Zurück zum Plan' : params.von === 'heute' ? 'Zurück zu Heute' : 'Zurück zum Kalender'}
+  </button>
 {/if}
