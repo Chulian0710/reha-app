@@ -32,6 +32,7 @@
   function wechseln(ds) {
     datum = ds;
     offenId = null;
+    aufgeklappt = {};
     tagebuchText = '';
     andere = '';
   }
@@ -70,6 +71,17 @@
     });
   }
   $: erledigtAnzahl = d ? d.tp.eintraege.filter((e) => e.erledigt).length : 0;
+
+  // Übungen nach Plan gruppiert, zusätzlich eingeplante (auch verschobene) als eigene Gruppe.
+  // Jede Gruppe lässt sich aufklappen; ist es nur eine, ist sie anfangs offen.
+  $: gruppen = d ? gruppieren(d.tp) : [];
+  let aufgeklappt = {};
+  function gruppieren(tp) {
+    const g = tp.plaene.map((p) => ({ key: `p${p.id}`, name: p.name, eintraege: tp.eintraege.filter((e) => !e.extra && e.planId === p.id) }));
+    const extra = tp.eintraege.filter((e) => e.extra);
+    if (extra.length) g.push({ key: 'extra', name: 'Zusätzlich eingeplant', eintraege: extra });
+    return g.filter((x) => x.eintraege.length);
+  }
 
   let andere = '';
 
@@ -215,7 +227,16 @@
       <span class="muted">{erledigtAnzahl} von {d.tp.eintraege.length} erledigt</span>
     </div>
     <div class="card">
-      {#each d.tp.eintraege as e (e.id)}
+      {#each gruppen as g (g.key)}
+        {@const offen = aufgeklappt[g.key] ?? gruppen.length === 1}
+        {@const fertig = g.eintraege.filter((e) => e.erledigt).length}
+        <div class="plan-gruppe">
+        <button class="plan-kopf" aria-expanded={offen} on:click={() => (aufgeklappt = { ...aufgeklappt, [g.key]: !offen })}>
+          <span class="zeile-text"><strong>{g.name}</strong><br /><span class="muted">{g.eintraege.length === 1 ? '1 Übung' : `${g.eintraege.length} Übungen`} · {fertig === g.eintraege.length ? 'alle erledigt ✓' : `${fertig} erledigt`}</span></span>
+          <span class="plan-pfeil" class:offen aria-hidden="true">›</span>
+        </button>
+        {#if offen}
+      {#each g.eintraege as e (e.id)}
         <div class="zeile" style={offenId === e.id ? 'border-bottom: none' : ''}>
           <input id="u{e.id}" type="checkbox" checked={e.erledigt} disabled={zukunft} on:change={() => umschalten(e)} />
           <label for="u{e.id}" class="zeile-text">
@@ -228,6 +249,9 @@
         {#if offenId === e.id}
           {#key datum}<TrainingPanel eintrag={e} {datum} r={d.r} nurDetails={zukunft} />{/key}
         {/if}
+      {/each}
+        {/if}
+        </div>
       {/each}
     </div>
     {#if zukunft}<p class="muted">Abhaken geht an dem Tag selbst.</p>{/if}

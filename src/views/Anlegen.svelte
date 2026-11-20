@@ -2,17 +2,21 @@
   import { liveQuery } from 'dexie';
   import { db, heute } from '../lib/db.js';
   import { kurz, TAGE } from '../lib/datum.js';
-  import { planAusListe } from '../lib/plan.js';
+  import { plaeneAusListe } from '../lib/plan.js';
   import { gehe } from '../lib/nav.js';
 
   // Ein Ort für alles, was man anlegt: Plan, Ziele, Messwerte. Mit kurzem Stand, damit man weiß, wo man steht.
   const stand = liveQuery(async () => {
-    const plan = planAusListe(await db.plaene.toArray(), heute());
-    const tage = plan ? [...new Set((await db.planEintraege.where('planId').equals(plan.id).toArray()).map((e) => e.wochentag))].sort() : [];
+    const plaene = plaeneAusListe(await db.plaene.toArray(), heute());
+    const texte = [];
+    for (const plan of plaene) {
+      const tage = [...new Set((await db.planEintraege.where('planId').equals(plan.id).toArray()).map((e) => e.wochentag))].sort();
+      texte.push(`${plan.name} · ${tage.length ? tage.map((t) => TAGE[t - 1]).join(', ') : 'noch keine Übungen'}`);
+    }
     const ziele = await db.ziele.toArray();
     const letzte = (await db.werte.orderBy('datum').last()) || null;
     return {
-      plan: plan ? `${plan.name} · ${tage.length ? tage.map((t) => TAGE[t - 1]).join(', ') : 'noch keine Übungen'}` : 'Noch kein Plan',
+      plan: texte.length ? texte.join(' | ') : 'Noch kein Plan',
       ziele: ziele.length ? `${ziele.filter((z) => !z.erreicht).length} offen · ${ziele.filter((z) => z.erreicht).length} erreicht` : 'Noch keine Ziele',
       messung: letzte ? `Letzte Messung am ${kurz(letzte.datum)}` : 'Noch keine Messung'
     };

@@ -2,29 +2,37 @@ import { db } from './db.js';
 import { wochentag } from './datum.js';
 import { istAusdauer, streckeEinheit, ausdauerText } from './ausdauer.js';
 
-// Der Plan, der an einem Datum gilt: der zuletzt begonnene, dessen Zeitraum das Datum enthält.
-export function planAusListe(plaene, datum) {
+// Alle Pläne, deren Zeitraum das Datum enthält. Sie gelten gemeinsam; der zuletzt begonnene steht vorne.
+export function plaeneAusListe(plaene, datum) {
   const passend = plaene.filter((p) => p.start <= datum && (!p.ende || p.ende >= datum));
-  passend.sort((a, b) => b.start.localeCompare(a.start));
-  return passend[0] || null;
+  return passend.sort((a, b) => b.start.localeCompare(a.start) || a.id - b.id);
 }
 
-export async function planFuer(datum) {
-  return planAusListe(await db.plaene.toArray(), datum);
+// Der zuletzt begonnene der gültigen Pläne (z. B. als Vorauswahl beim Bearbeiten)
+export function planAusListe(plaene, datum) {
+  return plaeneAusListe(plaene, datum)[0] || null;
+}
+
+export async function plaeneFuer(datum) {
+  return plaeneAusListe(await db.plaene.toArray(), datum);
 }
 
 // Übungen eines Tages mit Status: aus dem Wochenplan plus im Kalender eingeplante Zusatzübungen.
 // Ein Plantag ohne Übungen ist ein Ruhetag. Eine eingeplante Zusatzübung macht daraus einen Trainingstag.
 // Planübungen, die auf einen anderen Tag verschoben wurden, fehlen hier und stehen in „weg“ (mit Zieltag in datum).
 // Ein Tag, dessen Übungen alle verschoben wurden, ist kein Ruhetag.
+// Gelten mehrere Pläne, kommen die Übungen aller Pläne zusammen; jede trägt den Namen ihres Plans in planName.
 export async function tagesplan(datum) {
-  const plan = await planFuer(datum);
+  const plaene = await plaeneFuer(datum);
+  const plan = plaene[0] || null;
   const wt = wochentag(datum);
   const weg = await db.planEintraege.where('vonDatum').equals(datum).toArray();
   const wegIds = new Set(weg.map((e) => e.vonEintragId));
-  const ausPlan = plan
-    ? (await db.planEintraege.where('planId').equals(plan.id).toArray()).filter((e) => e.wochentag === wt && !wegIds.has(e.id))
-    : [];
+  const ausPlan = [];
+  for (const p of plaene) {
+    const liste = (await db.planEintraege.where('planId').equals(p.id).toArray()).filter((e) => e.wochentag === wt && !wegIds.has(e.id));
+    ausPlan.push(...liste.map((e) => ({ ...e, planName: p.name })));
+  }
   const extra = (await db.planEintraege.where('datum').equals(datum).toArray()).map((e) => ({ ...e, extra: true }));
   const eintraege = [...ausPlan, ...extra];
   const uebungen = await db.uebungen.bulkGet([...eintraege, ...weg].map((e) => e.uebungId));
@@ -33,7 +41,7 @@ export async function tagesplan(datum) {
   const liste = eintraege.map((e, i) => ({ ...e, uebung: uebungen[i], erledigt: fertig.has(e.id) }));
   const wegListe = weg.map((e, i) => ({ ...e, uebung: uebungen[eintraege.length + i] })).sort((a, b) => a.datum.localeCompare(b.datum));
   const termine = await termineAm(datum);
-  return { plan, eintraege: liste, weg: wegListe, ruhetag: !!plan && liste.length === 0 && wegListe.length === 0, termine };
+  return { plan, plaene, eintraege: liste, weg: wegListe, ruhetag: !!plan && liste.length === 0 && wegListe.length === 0, termine };
 }
 
 // Felder, die eine verschobene Planübung als Kopie mitnimmt
@@ -63,8 +71,8 @@ export async function verschieben(eintraege, von, nach) {
         const alt = await db.planEintraege.get(e.id);
         alteEintraege.push(alt);
         const original = alt.vonEintragId && alt.vonDatum === nach ? await db.planEintraege.get(alt.vonEintragId) : null;
-        const plan = original ? await planFuer(nach) : null;
-        if (original && plan && original.planId === plan.id && original.wochentag === wochentag(nach)) {
+        const gueltig = original ? (await plaeneFuer(nach)).some((p) => p.id === original.planId) : false;
+        if (gueltig && original.wochentag === wochentag(nach)) {
           await db.planEintraege.delete(e.id);
           zielId = original.id;
         } else if (alt.vonDatum === nach) {

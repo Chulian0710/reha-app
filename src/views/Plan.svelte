@@ -2,7 +2,7 @@
   import { liveQuery } from 'dexie';
   import { db } from '../lib/db.js';
   import { heute, wochentag, TAGE, TAGE_LANG, kurz } from '../lib/datum.js';
-  import { planAusListe, eintragText } from '../lib/plan.js';
+  import { planAusListe } from '../lib/plan.js';
   import { istAusdauer, streckeEinheit } from '../lib/ausdauer.js';
   import { alsDataUrl, dataUrlOeffnen } from '../lib/datei.js';
   import { gehe } from '../lib/nav.js';
@@ -175,7 +175,7 @@
       >
         <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
         <div class="zeile tippbar" on:click={() => bearbeiten(e)}>
-          <span class="zeile-text">{e.uebung?.name ?? 'Übung'}<br /><span class="muted">{eintragText(e)}{e.uebung?.video ? ' · Video' : ''}</span>{#if e.notiz}<br /><span class="muted">{e.notiz}</span>{/if}</span>
+          <span class="zeile-text">{e.uebung?.name ?? 'Übung'}</span>
           <span class="muted" aria-hidden="true">›</span>
         </div>
       </SwipeRow>
