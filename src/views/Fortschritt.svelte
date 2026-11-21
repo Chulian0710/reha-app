@@ -10,6 +10,7 @@
   import LineChart from '../lib/LineChart.svelte';
   import Medaille from '../lib/Medaille.svelte';
   import { istAusdauer, streckeEinheit, zahl1 } from '../lib/ausdauer.js';
+  import { schmerzJeTag, gleitend, trainingsInfo, VERGLEICHE, vergleichen, fazit, trend, komma, schmerzFarbe, MIN_TAGE } from '../lib/schmerz.js';
 
   const h = heute();
   const LINKS = '#00897b';
@@ -36,6 +37,8 @@
       uebungen,
       reihen,
       werte,
+      schmerz: schmerzJeTag(await db.tagebuch.toArray()),
+      trainingsInfo: await trainingsInfo(),
       ziele: await zieleMitStand(),
       abzeichen: await db.abzeichen.toArray(),
       stat: await statistik()
@@ -104,17 +107,35 @@
 
   let zeitraum = 'alles';
   const ZEITRAEUME = [['4w', '4 Wochen', 28], ['3m', '3 Monate', 91], ['alles', 'Alles', null]];
-  $: abDatum = (() => {
-    const tage = ZEITRAEUME.find((z) => z[0] === zeitraum)[2];
+  function abDatumFuer(z) {
+    const tage = ZEITRAEUME.find((x) => x[0] === z)[2];
     if (!tage) return '';
     const dt = parse(h);
     dt.setDate(dt.getDate() - tage);
     return iso(dt);
-  })();
+  }
+  $: abDatum = abDatumFuer(zeitraum);
   $: kraftPunkte = kraftAuswahl ? kraftAuswahl.punkte.filter((p) => p.datum >= abDatum) : [];
   $: kraftStart = kraftPunkte[0];
   $: kraftJetzt = kraftPunkte[kraftPunkte.length - 1];
   $: kraftPlus = kraftStart && kraftJetzt && kraftStart.wert > 0 ? Math.round(((kraftJetzt.wert - kraftStart.wert) / kraftStart.wert) * 100) : null;
+
+  // --- Schmerz aus dem Tagebuch ---
+  const SCHMERZ = '#c4561a';
+  let schmerzZeitraum = '3m';
+  let schmerzVergleichId = 'training';
+  $: schmerzAb = abDatumFuer(schmerzZeitraum);
+  $: schmerzAlle = d ? d.schmerz : [];
+  // Der 7-Tage-Schnitt nutzt auch Werte vor dem Zeitraum, damit er am Anfang nicht springt
+  $: schmerzSchnitt = gleitend(schmerzAlle).filter((p) => p.datum >= schmerzAb);
+  $: schmerzPunkte = schmerzAlle.filter((p) => p.datum >= schmerzAb);
+  $: schmerzTrend = trend(schmerzPunkte);
+  $: schmerzLetzt = schmerzPunkte[schmerzPunkte.length - 1];
+  $: schmerzTraining = d ? [...d.trainingsInfo.training] : [];
+  $: schmerzVergleich = VERGLEICHE.find((v) => v.id === schmerzVergleichId);
+  $: schmerzGruppen = d ? vergleichen(schmerzPunkte, d.trainingsInfo, schmerzVergleich) : [];
+  $: schmerzFazit = schmerzGruppen.length ? fazit(schmerzGruppen) : null;
+  const vorzeichen = (v) => (Math.round(v * 10) === 0 ? '±0' : (v > 0 ? '+' : '−') + komma(Math.abs(v)));
 
   // --- Ausdauer: Strecke und Dauer je Tag ---
   $: ausdauer = (() => {
@@ -274,6 +295,74 @@
       </span>
     </div>
   </div>
+
+  <!-- Schmerz -->
+  <h2>Schmerz</h2>
+  {#if !schmerzAlle.length}
+    <div class="card">
+      <p class="muted" style="margin-top: 0">Trag im Tagebuch ein, wie stark dein Schmerz ist (0–10). Hier siehst du dann, wie er sich entwickelt und ob Training oder Ruhe einen Unterschied machen.</p>
+      <button class="sek" on:click={() => gehe('tagebuch')}>Zum Tagebuch</button>
+    </div>
+  {:else}
+    <div class="card">
+      <div class="chips" role="group" aria-label="Zeitraum" style="margin-bottom: 12px">
+        {#each ZEITRAEUME as [id, label]}
+          <button class="chip klein-chip" class:an={schmerzZeitraum === id} aria-pressed={schmerzZeitraum === id} on:click={() => (schmerzZeitraum = id)}>{label}</button>
+        {/each}
+      </div>
+      {#if !schmerzPunkte.length}
+        <p class="muted" style="margin: 0">In diesem Zeitraum kein Schmerzwert eingetragen.</p>
+      {:else}
+        <div class="mini-stats">
+          {#if schmerzTrend}
+            <div><span class="muted">Anfang</span><strong>Ø {komma(schmerzTrend.anfang)}</strong><span class="muted">erste {schmerzTrend.k} Tage</span></div>
+            <div><span class="muted">Zuletzt</span><strong>Ø {komma(schmerzTrend.zuletzt)}</strong><span class="muted">letzte {schmerzTrend.k} Tage</span></div>
+            <div><span class="muted">Veränderung</span><strong>{vorzeichen(schmerzTrend.diff)}</strong><span class="muted">Punkte</span></div>
+          {:else}
+            <div><span class="muted">Zuletzt</span><strong>{schmerzLetzt.wert}</strong><span class="muted">{kurz(schmerzLetzt.datum)}</span></div>
+            <div><span class="muted">Höchster</span><strong>{Math.max(...schmerzPunkte.map((p) => p.wert))}</strong><span class="muted">im Zeitraum</span></div>
+            <div><span class="muted">Einträge</span><strong>{schmerzPunkte.length}</strong><span class="muted">Trend ab 6</span></div>
+          {/if}
+        </div>
+        <LineChart
+          series={[
+            { name: 'Tageswert', farbe: SCHMERZ, punkte: schmerzPunkte },
+            { name: 'Ø 7 Tage', farbe: LINKS, gestrichelt: true, punkte: schmerzSchnitt }
+          ]}
+          min={0}
+          max={10}
+          markierungen={schmerzTraining}
+          markierungName="Training"
+        />
+      {/if}
+    </div>
+
+    {#if schmerzPunkte.length}
+      <div class="chips filter-zeile" role="group" aria-label="Vergleichen">
+        {#each VERGLEICHE as v (v.id)}
+          <button class="chip" class:an={schmerzVergleichId === v.id} aria-pressed={schmerzVergleichId === v.id} on:click={() => (schmerzVergleichId = v.id)}>{v.label}</button>
+        {/each}
+      </div>
+      <div class="card" style="margin-top: 10px">
+        {#each schmerzGruppen as g}
+          <div class="schmerz-balken">
+            <span>{g.name}</span>
+            <span>{#if g.schnitt !== null}<strong>Ø {komma(g.schnitt)}</strong>{:else}–{/if} <span class="muted">· {g.n} {g.n === 1 ? 'Tag' : 'Tage'}</span></span>
+            <div class="bar" role="img" aria-label="{g.name}: Durchschnitt {g.schnitt === null ? 'keiner' : komma(g.schnitt)} von 10">
+              {#if g.schnitt !== null}<div style="width: {g.schnitt * 10}%; background: {schmerzFarbe(g.schnitt)}"></div>{/if}
+            </div>
+          </div>
+        {/each}
+        {#if schmerzFazit}
+          <p class="hinweis" style="margin: 12px 0 0">{schmerzFazit}</p>
+        {:else}
+          <p class="muted" style="margin: 12px 0 0">Für einen Vergleich braucht es mindestens {MIN_TAGE} Tage mit Schmerzwert in jeder Gruppe.</p>
+        {/if}
+        {#if schmerzVergleich.hinweis}<p class="muted" style="margin: 8px 0 0; font-size: 0.8rem">{schmerzVergleich.hinweis}</p>{/if}
+        <p class="muted" style="margin: 8px 0 0; font-size: 0.8rem">Verglichen werden nur Tage im gewählten Zeitraum.</p>
+      </div>
+    {/if}
+  {/if}
 
   <!-- Kraft -->
   <h2 id="kraft">Kraftentwicklung</h2>

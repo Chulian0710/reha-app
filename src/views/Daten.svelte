@@ -5,6 +5,7 @@
   import { berichtErzeugen } from '../lib/report.js';
   import { packImportieren, packPruefen } from '../lib/betreuer.js';
 
+  let mitTagebuch = false;
   let packInput;
   let packMeldung = '';
   let packText = null; // gewählte Datei, wartet auf Passwort
@@ -97,8 +98,12 @@
 
 <h2>Bericht</h2>
 <div class="card">
-  <p class="muted">Ein PDF mit deinen Messwerten, z. B. zum Zeigen beim Physio. Das ist kein Backup und lässt sich nicht wieder importieren.</p>
-  <button on:click={berichtErzeugen}>PDF-Bericht erstellen</button>
+  <p class="muted">Ein PDF mit Schmerzverlauf und Messwerten, z. B. zum Zeigen beim Physio. Das ist kein Backup und lässt sich nicht wieder importieren.</p>
+  <label class="row" style="gap: 10px; flex-wrap: nowrap; color: var(--text); font-size: 0.95rem; margin: 0 0 12px">
+    <input type="checkbox" bind:checked={mitTagebuch} />
+    Tagebuchtexte zu Tagen mit starkem Schmerz mitnehmen
+  </label>
+  <button on:click={() => berichtErzeugen({ tagebuchTexte: mitTagebuch })}>PDF-Bericht erstellen</button>
 </div>
 
 <h2>Pack importieren</h2>

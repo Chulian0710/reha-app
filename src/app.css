@@ -524,3 +524,12 @@ button.weg-zeile { width: 100%; text-align: left; font-weight: 400; text-decorat
 .auswahl-leiste { position: sticky; bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 20; margin: 12px 0; }
 .auswahl-leiste button { width: 100%; box-shadow: 0 6px 20px rgba(31, 42, 41, 0.22); }
 @media (min-width: 900px) { .auswahl-leiste { bottom: 16px; } }
+
+/* Schmerzskala */
+.schmerz-skala { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 4px; }
+button.schmerz-chip { min-height: 44px; padding: 0; border-radius: 10px; font-variant-numeric: tabular-nums; }
+.schmerz-enden { display: flex; justify-content: space-between; font-size: 0.75rem; margin-top: 4px; }
+.schmerz-badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; color: #fff; font-size: 0.78rem; font-weight: 600; }
+.schmerz-balken { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; margin: 10px 0; }
+.schmerz-balken .bar { grid-column: 1 / -1; height: 12px; }
+.schmerz-balken strong { font-variant-numeric: tabular-nums; }

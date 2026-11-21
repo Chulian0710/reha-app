@@ -1,11 +1,16 @@
 <script>
   // Liniendiagramm mit Fadenkreuz. series: [{ name, punkte: [{ datum, wert }], farbe, gestrichelt }]
   // Tippen oder Zeigen wählt den nächsten Tag, die Werte stehen über dem Diagramm. Pfeiltasten gehen auch.
+  // min/max legen die y-Achse fest (z. B. 0–10). markierungen: Tage, die unter der Achse einen Strich bekommen.
   import { kurz, parse } from './datum.js';
 
   export let series = [];
   export let einheit = '';
   export let hoehe = 170;
+  export let min = null;
+  export let max = null;
+  export let markierungen = [];
+  export let markierungName = '';
 
   const B = 320, PL = 36, PR = 12, PT = 12, PB = 22;
   $: H = hoehe;
@@ -15,8 +20,9 @@
   $: rohMin = alle.length ? Math.min(...alle.map((p) => p.wert)) : 0;
   $: rohMax = alle.length ? Math.max(...alle.map((p) => p.wert)) : 1;
   $: rand = (rohMax - rohMin || Math.abs(rohMax) || 1) * 0.12;
-  $: minW = rohMin - rand;
-  $: maxW = rohMax + rand;
+  $: fest = min !== null && max !== null;
+  $: minW = fest ? min : rohMin - rand;
+  $: maxW = fest ? max : rohMax + rand;
   $: t0 = tage.length ? parse(tage[0]).getTime() : 0;
   $: t1 = tage.length ? parse(tage[tage.length - 1]).getTime() : 1;
 
@@ -37,7 +43,9 @@
   });
 
   // Hilfslinien bei Minimum, Mitte und Maximum
-  $: hilfslinien = !alle.length ? [] : rohMin === rohMax ? [rohMin] : [rohMin, (rohMin + rohMax) / 2, rohMax];
+  $: hilfslinien = !alle.length ? [] : fest ? [min, (min + max) / 2, max] : rohMin === rohMax ? [rohMin] : [rohMin, (rohMin + rohMax) / 2, rohMax];
+  $: striche = markierungen.filter((m) => tage.length && m >= tage[0] && m <= tage[tage.length - 1]);
+  $: markiert = new Set(markierungen);
 
   let svg;
   let aktiv = null;
@@ -68,7 +76,7 @@
   <p class="muted" style="margin: 0">Noch keine Werte für ein Diagramm.</p>
 {:else}
   <div class="lc-readout" aria-live="polite">
-    <span class="muted">{kurz(zeigeTag)}{aktiv ? '' : ' · zuletzt'}</span>
+    <span class="muted">{kurz(zeigeTag)}{aktiv ? '' : ' · zuletzt'}{markierungName && markiert.has(zeigeTag) ? ` · ${markierungName}` : ''}</span>
     {#each readout as s}
       <span class="lc-wert">
         <svg width="16" height="8" aria-hidden="true"><line x1="0" y1="4" x2="16" y2="4" stroke={s.farbe} stroke-width="2.5" stroke-dasharray={s.gestrichelt ? '4 3' : null} /></svg>
@@ -98,6 +106,9 @@
       <text x={PL - 6} y={y(w, minW, maxW, H) + 3.5} font-size="10" text-anchor="end" fill="var(--muted)">{zahl(w)}</text>
     {/each}
     <line x1={PL} y1={H - PB} x2={B - PR} y2={H - PB} stroke="var(--field)" stroke-width="1" />
+    {#each striche as m}
+      <line x1={x(m, t0, t1)} x2={x(m, t0, t1)} y1={H - PB + 2} y2={H - PB + 7} stroke="var(--muted)" stroke-width="1.5" />
+    {/each}
     <text x={PL} y={H - 6} font-size="10" fill="var(--muted)">{kurz(tage[0])}</text>
     {#if tage.length > 1}<text x={B - PR} y={H - 6} font-size="10" text-anchor="end" fill="var(--muted)">{kurz(tage[tage.length - 1])}</text>{/if}
 
@@ -115,7 +126,7 @@
       {/each}
     {/each}
   </svg>
-  {#if series.length > 1}
+  {#if series.length > 1 || (markierungName && striche.length)}
     <div class="row muted" style="font-size: 0.85rem">
       {#each series as s}
         <span class="row" style="gap: 6px; flex-wrap: nowrap">
@@ -123,6 +134,12 @@
           {s.name}
         </span>
       {/each}
+      {#if markierungName && striche.length}
+        <span class="row" style="gap: 6px; flex-wrap: nowrap">
+          <svg width="8" height="10" aria-hidden="true"><line x1="4" y1="1" x2="4" y2="9" stroke="var(--muted)" stroke-width="1.5" /></svg>
+          {markierungName}
+        </span>
+      {/if}
     </div>
   {/if}
 {/if}
