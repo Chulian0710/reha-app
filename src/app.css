@@ -533,3 +533,9 @@ button.schmerz-chip { min-height: 44px; padding: 0; border-radius: 10px; font-va
 .schmerz-balken { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; margin: 10px 0; }
 .schmerz-balken .bar { grid-column: 1 / -1; height: 12px; }
 .schmerz-balken strong { font-variant-numeric: tabular-nums; }
+
+/* Tagebuch: Suche und Filter */
+.tagebuch-filter { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 10px; margin-bottom: 4px; }
+@media (min-width: 560px) { .tagebuch-filter { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
+.tagebuch-filter label { margin-top: 4px; }
+mark { background: #fde68a; color: inherit; border-radius: 3px; padding: 0 1px; }
