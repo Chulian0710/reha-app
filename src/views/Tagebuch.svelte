@@ -5,18 +5,21 @@
   import SwipeRow from '../lib/SwipeRow.svelte';
   import { loeschenMitUndo } from '../lib/toast.js';
   import { regeln, xpVergeben } from '../lib/xp.js';
+  import { SCHMERZ_STUFEN, schmerzFarbe } from '../lib/schmerz.js';
 
   // Tagebuch gibt standardmäßig keine XP (im Betreuer-Bereich einstellbar), höchstens einmal pro Tag.
   const eintraege = liveQuery(() => db.tagebuch.toArray());
   let text = '';
+  let schmerz = null; // 0–10 oder null (nicht angegeben)
 
   $: sortiert = ($eintraege || []).slice().sort((a, b) => b.datum.localeCompare(a.datum) || b.id - a.id);
 
   async function speichern() {
-    if (!text.trim()) return;
+    if (!text.trim() && schmerz === null) return;
     const datum = heute();
-    await db.tagebuch.add({ datum, text: text.trim(), zeit: Date.now() });
+    await db.tagebuch.add({ datum, text: text.trim(), schmerz, zeit: Date.now() });
     text = '';
+    schmerz = null;
     const r = await regeln();
     if (r.tagebuchXp > 0) await xpVergeben('Tagebuch', r.tagebuchXp, `tagebuch:${datum}`, datum);
   }
@@ -31,7 +34,20 @@
 <div class="card">
   <label for="t">Wie war der Tag? Schreib es so, wie es ist.</label>
   <textarea id="t" bind:value={text}></textarea>
-  <div style="margin-top: 10px"><button on:click={speichern}>Speichern</button></div>
+  <span class="feldname" id="schmerz-label">Schmerz heute (optional)</span>
+  <div class="schmerz-skala" role="group" aria-labelledby="schmerz-label">
+    {#each SCHMERZ_STUFEN as v}
+      <button
+        class="chip schmerz-chip"
+        class:an={schmerz === v}
+        style={schmerz === v ? `background: ${schmerzFarbe(v)}; border-color: ${schmerzFarbe(v)}` : ''}
+        aria-pressed={schmerz === v}
+        aria-label="Schmerz {v} von 10"
+        on:click={() => (schmerz = schmerz === v ? null : v)}>{v}</button>
+    {/each}
+  </div>
+  <div class="schmerz-enden muted" aria-hidden="true"><span>kein Schmerz</span><span>stärkster</span></div>
+  <div style="margin-top: 10px"><button on:click={speichern} disabled={!text.trim() && schmerz === null}>Speichern</button></div>
 </div>
 
 <div class="card">
@@ -41,7 +57,11 @@
   {#each sortiert as e (e.id)}
     <SwipeRow aktionen={[{ label: 'Löschen', art: 'loeschen', aktion: () => loeschen(e) }]}>
       <div class="zeile" style="align-items: flex-start; padding: 10px 0">
-        <span class="zeile-text"><span class="muted">{kurz(e.datum)}</span><br /><span style="white-space: pre-line">{e.text}</span></span>
+        <span class="zeile-text">
+          <span class="muted">{kurz(e.datum)}</span>
+          {#if typeof e.schmerz === 'number'}<span class="schmerz-badge" style="background: {schmerzFarbe(e.schmerz)}">Schmerz {e.schmerz}</span>{/if}
+          {#if e.text}<br /><span style="white-space: pre-line">{e.text}</span>{/if}
+        </span>
       </div>
     </SwipeRow>
   {/each}
