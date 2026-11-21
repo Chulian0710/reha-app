@@ -5,7 +5,8 @@
   import SwipeRow from '../lib/SwipeRow.svelte';
   import { loeschenMitUndo } from '../lib/toast.js';
   import { regeln, xpVergeben } from '../lib/xp.js';
-  import { SCHMERZ_STUFEN, schmerzFarbe } from '../lib/schmerz.js';
+  import { schmerzFarbe } from '../lib/schmerz.js';
+  import SchmerzSkala from '../lib/SchmerzSkala.svelte';
 
   // Tagebuch gibt standardmäßig keine XP (im Betreuer-Bereich einstellbar), höchstens einmal pro Tag.
   const eintraege = liveQuery(() => db.tagebuch.toArray());
@@ -34,19 +35,7 @@
 <div class="card">
   <label for="t">Wie war der Tag? Schreib es so, wie es ist.</label>
   <textarea id="t" bind:value={text}></textarea>
-  <span class="feldname" id="schmerz-label">Schmerz heute (optional)</span>
-  <div class="schmerz-skala" role="group" aria-labelledby="schmerz-label">
-    {#each SCHMERZ_STUFEN as v}
-      <button
-        class="chip schmerz-chip"
-        class:an={schmerz === v}
-        style={schmerz === v ? `background: ${schmerzFarbe(v)}; border-color: ${schmerzFarbe(v)}` : ''}
-        aria-pressed={schmerz === v}
-        aria-label="Schmerz {v} von 10"
-        on:click={() => (schmerz = schmerz === v ? null : v)}>{v}</button>
-    {/each}
-  </div>
-  <div class="schmerz-enden muted" aria-hidden="true"><span>kein Schmerz</span><span>stärkster</span></div>
+  <SchmerzSkala bind:wert={schmerz} />
   <div style="margin-top: 10px"><button on:click={speichern} disabled={!text.trim() && schmerz === null}>Speichern</button></div>
 </div>
 
