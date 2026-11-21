@@ -13,6 +13,8 @@
   import Sheet from '../lib/Sheet.svelte';
   import BriefOeffnen from '../lib/BriefOeffnen.svelte';
   import { briefStand } from '../lib/briefe.js';
+  import { schmerzFarbe } from '../lib/schmerz.js';
+  import SchmerzSkala from '../lib/SchmerzSkala.svelte';
 
   // Ungeöffnete Briefe stehen ganz oben (nur bei „Heute“)
   const briefe = liveQuery(briefStand);
@@ -34,6 +36,7 @@
     offenId = null;
     aufgeklappt = {};
     tagebuchText = '';
+    tagebuchSchmerz = null;
     andere = '';
   }
 
@@ -122,10 +125,12 @@
 
   // Tagebuch: XP nur, wenn im Betreuer-Bereich eingestellt (Standard 0), höchstens einmal pro Tag.
   let tagebuchText = '';
+  let tagebuchSchmerz = null; // 0–10 oder null
   async function tagebuchSpeichern() {
-    if (!tagebuchText.trim()) return;
-    await db.tagebuch.add({ datum, text: tagebuchText.trim(), zeit: Date.now() });
+    if (!tagebuchText.trim() && tagebuchSchmerz === null) return;
+    await db.tagebuch.add({ datum, text: tagebuchText.trim(), schmerz: tagebuchSchmerz, zeit: Date.now() });
     tagebuchText = '';
+    tagebuchSchmerz = null;
     if (d.r.tagebuchXp > 0) await xpVergeben('Tagebuch', d.r.tagebuchXp, `tagebuch:${datum}`, datum);
   }
   async function tagebuchLoeschen(e) {
@@ -291,14 +296,18 @@
       {#each d.tagebuch as e (e.id)}
         <SwipeRow aktionen={[{ label: 'Löschen', art: 'loeschen', aktion: () => tagebuchLoeschen(e) }]}>
           <div class="zeile" style="align-items: flex-start; padding: 10px 0">
-            <span class="zeile-text" style="white-space: pre-line">{e.text}</span>
+            <span class="zeile-text">
+              {#if typeof e.schmerz === 'number'}<span class="schmerz-badge" style="background: {schmerzFarbe(e.schmerz)}; margin-left: 0">Schmerz {e.schmerz}</span>{/if}
+              {#if e.text}{#if typeof e.schmerz === 'number'}<br />{/if}<span style="white-space: pre-line">{e.text}</span>{/if}
+            </span>
           </div>
         </SwipeRow>
       {/each}
       <label for="tb" style={d.tagebuch.length ? '' : 'margin-top: 0'}>{d.tagebuch.length ? 'Noch etwas ergänzen' : 'Wie war der Tag? Schreib es so, wie es ist.'}</label>
       <textarea id="tb" bind:value={tagebuchText} style="min-height: 90px"></textarea>
+      <SchmerzSkala bind:wert={tagebuchSchmerz} id="schmerz-heute" label={datum === heute() ? 'Schmerz heute (optional)' : 'Schmerz an diesem Tag (optional)'} />
       <div class="row" style="margin-top: 10px; justify-content: space-between">
-        <button on:click={tagebuchSpeichern} disabled={!tagebuchText.trim()}>Speichern</button>
+        <button on:click={tagebuchSpeichern} disabled={!tagebuchText.trim() && tagebuchSchmerz === null}>Speichern</button>
         <button class="link" on:click={() => gehe('tagebuch')}>Alle Einträge</button>
       </div>
     </div>
